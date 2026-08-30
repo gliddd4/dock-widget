@@ -2,7 +2,10 @@
 //  OptionNumberHotKeys.swift
 //  Dock
 //
-//  Registers global Option+1..9 hotkeys to switch to the Nth app in the Touch Bar dock.
+//  Registers global hotkeys for the Touch Bar dock:
+//    Option+1..9  -> switch to the Nth app in the dock
+//    Option+[     -> shrink the dock item (icon) size
+//    Option+]     -> grow the dock item (icon) size
 //
 
 import Foundation
@@ -16,10 +19,13 @@ final class OptionNumberHotKeys {
 	private var handlerInstalled = false
 	private var hotKeyRefs: [EventHotKeyRef?] = []
 
-	private let keyCodes: [UInt32] = [
-		UInt32(kVK_ANSI_1), UInt32(kVK_ANSI_2), UInt32(kVK_ANSI_3),
-		UInt32(kVK_ANSI_4), UInt32(kVK_ANSI_5), UInt32(kVK_ANSI_6),
-		UInt32(kVK_ANSI_7), UInt32(kVK_ANSI_8), UInt32(kVK_ANSI_9)
+	/// (keyCode, id) pairs. ids 1-9 are app switch; 10 = shrink, 11 = grow.
+	private let hotKeys: [(UInt32, Int)] = [
+		(UInt32(kVK_ANSI_1), 1), (UInt32(kVK_ANSI_2), 2), (UInt32(kVK_ANSI_3), 3),
+		(UInt32(kVK_ANSI_4), 4), (UInt32(kVK_ANSI_5), 5), (UInt32(kVK_ANSI_6), 6),
+		(UInt32(kVK_ANSI_7), 7), (UInt32(kVK_ANSI_8), 8), (UInt32(kVK_ANSI_9), 9),
+		(UInt32(kVK_ANSI_LeftBracket), 10),
+		(UInt32(kVK_ANSI_RightBracket), 11)
 	]
 
 	func register(handler: @escaping (Int) -> Void) {
@@ -41,7 +47,7 @@ final class OptionNumberHotKeys {
 				return result
 			}
 			let index = Int(hotKeyID.id)
-			if (1...9).contains(index) {
+			if (1...11).contains(index) {
 				DispatchQueue.main.async {
 					OptionNumberHotKeys.shared.handler?(index)
 				}
@@ -54,9 +60,9 @@ final class OptionNumberHotKeys {
 		}
 		handlerInstalled = true
 		let signature = OSType(0x4F4B4544) // 'OKED'
-		for (offset, keyCode) in keyCodes.enumerated() {
+		for (keyCode, id) in hotKeys {
 			var hotKeyRef: EventHotKeyRef?
-			let hotKeyID = EventHotKeyID(signature: signature, id: UInt32(offset + 1))
+			let hotKeyID = EventHotKeyID(signature: signature, id: UInt32(id))
 			let registerStatus = RegisterEventHotKey(keyCode,
 													 UInt32(optionKey),
 													 hotKeyID,
@@ -64,7 +70,7 @@ final class OptionNumberHotKeys {
 													 0,
 													 &hotKeyRef)
 			if registerStatus != noErr {
-				NSLog("[DockWidget]: Failed to register hotkey for index \(offset + 1): \(registerStatus)")
+				NSLog("[DockWidget]: Failed to register hotkey for id \(id): \(registerStatus)")
 			}
 			hotKeyRefs.append(hotKeyRef)
 		}
