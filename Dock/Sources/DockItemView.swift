@@ -23,6 +23,7 @@ class DockItemView: NSScrubberItemView {
     public private(set) var iconView:      NSImageView!
     public private(set) var badgeView:     NSView!
 	private private(set) var nameLabel:    NSTextField!
+	private var nameLabelWidthConstraint: NSLayoutConstraint?
 
 	/// Load frontmost (square box around the item)
     private func loadFrontmost() {
@@ -34,7 +35,7 @@ class DockItemView: NSScrubberItemView {
 		self.frontmostView.edgesToSuperview()
     }
 
-    /// Load icon view
+	/// Load icon view (fills the whole item height)
     private func loadIconView() {
         self.iconView = NSImageView(frame: .zero)
         self.iconView.imageScaling = .scaleProportionallyDown
@@ -42,7 +43,7 @@ class DockItemView: NSScrubberItemView {
         self.contentView.addSubview(self.iconView)
 		self.iconView.size(Constants.dockItemIconSize)
 		self.iconView.centerYToSuperview()
-		self.iconView.leftToSuperview(offset: 4)
+		self.iconView.leftToSuperview(offset: 2)
     }
 
     /// Load name label (only visible for the frontmost item)
@@ -59,7 +60,8 @@ class DockItemView: NSScrubberItemView {
 		self.contentView.addSubview(self.nameLabel)
 		self.nameLabel.centerYToSuperview()
 		self.nameLabel.leadingToTrailing(of: self.iconView, offset: Constants.nameHorizontalPadding)
-		self.nameLabel.width(0)
+		nameLabelWidthConstraint = self.nameLabel.width(0)
+		self.nameLabel.width(min: 0, max: Constants.nameMaxWidth)
 	}
 
     /// Load badge view
@@ -116,6 +118,10 @@ class DockItemView: NSScrubberItemView {
 	public func set(name: String?) {
 		if nameLabel == nil { loadNameLabel() }
 		nameLabel.stringValue = name ?? ""
+		let field = NSTextField(labelWithString: name ?? "")
+		field.font = NSFont.systemFont(ofSize: Constants.nameFontSize, weight: .medium)
+		let size = field.sizeThatFits(NSSize(width: Constants.nameMaxWidth, height: Constants.dockItemSize.height))
+		nameWidth = ceil(size.width)
 	}
 
 	/// Closed apps are dimmed to 50% opacity (replaces the running-indicator dot)
@@ -131,10 +137,10 @@ class DockItemView: NSScrubberItemView {
     }
     public var hasBadge: Bool { return badgeView.layer?.opacity == 1 }
 
-	/// Frontmost: square box + animated name reveal
+	/// Frontmost: highlight + animated name reveal to the right of the icon
 	public func set(isFrontmost: Bool) {
-		if frontmostView == nil { loadFrontmost() }
 		if nameLabel == nil { loadNameLabel() }
+		if frontmostView == nil { loadFrontmost() }
 		let box = frontmostView.layer!
 		box.removeAnimation(forKey: "boxTransition")
 		let transition = CATransition()
@@ -144,6 +150,9 @@ class DockItemView: NSScrubberItemView {
 		box.backgroundColor = (isFrontmost ? NSColor.darkGray : NSColor.clear).cgColor
 		revealName(isFrontmost)
 	}
+
+	/// Measured name width (0 when no name)
+	fileprivate var nameWidth: CGFloat = 0
 
 	private func revealName(_ show: Bool) {
 		let label = nameLabel.layer!
@@ -155,6 +164,8 @@ class DockItemView: NSScrubberItemView {
 		transition.timingFunction = CAMediaTimingFunction(name: .easeOut)
 		label.add(transition, forKey: "nameReveal")
 		label.opacity = show ? 1 : 0
+		/// Grow the width constraint so the text is actually visible next to the icon
+		nameLabelWidthConstraint?.constant = show ? nameWidth : 0
 	}
 
 	public var isFrontmost: Bool { return frontmostView.layer?.backgroundColor == NSColor.darkGray.cgColor }
