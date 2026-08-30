@@ -1,0 +1,52 @@
+name: Build CornerDock
+
+on:
+  push:
+    branches: [main, custom-dock]
+    paths:
+      - 'corner-dock/**'
+      - '.github/workflows/corner-dock.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build (swiftc, no SPM needed)
+        run: |
+          set -o pipefail
+          mkdir -p build/CornerDock.app/Contents/MacOS
+          swiftc -O \
+            corner-dock/Sources/CornerDock/*.swift \
+            -o build/CornerDock.app/Contents/MacOS/CornerDock \
+            -framework AppKit \
+            2>&1 | tee build.log
+          cat > build/CornerDock.app/Contents/Info.plist <<'PLIST'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>CFBundleExecutable</key><string>CornerDock</string>
+            <key>CFBundleIdentifier</key><string>com.gliddd4.cornerdock</string>
+            <key>CFBundleName</key><string>CornerDock</string>
+            <key>CFBundlePackageType</key><string>APPL</string>
+            <key>CFBundleShortVersionString</key><string>0.1.0</string>
+            <key>LSMinimumSystemVersion</key><string>13.0</string>
+            <key>LSUIElement</key><true/>
+            <key>NSPrincipalClass</key><string>NSApplication</string>
+          </dict>
+          </plist>
+          PLIST
+          codesign --force --deep --sign - build/CornerDock.app
+          cd build && zip -qry CornerDock.app.zip CornerDock.app && cd ..
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: CornerDock.app
+          path: |
+            build/CornerDock.app.zip
+            build.log
+          if-no-files-found: ignore
