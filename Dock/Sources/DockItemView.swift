@@ -25,17 +25,18 @@ class DockItemView: NSScrubberItemView {
 	private private(set) var nameLabel:    NSTextField!
 	private var nameLabelWidthConstraint: NSLayoutConstraint?
 
-	/// Load icon view (fills the whole item height, square, adaptive)	private func loadIconView() {
+	/// Load icon view (fills the whole item height, square, adaptive)
+    private func loadIconView() {
         self.iconView = NSImageView(frame: .zero)
         self.iconView.imageScaling = .scaleProportionallyDown
         self.iconView.wantsLayer = true
-        self.contentView.addSubview(self.iconView)
-        /// Boost color saturation of app icons
-        if let filter = CIFilter(name: "CIColorControls") {
-            filter.setValue(1.4, forKey: kCIInputSaturationKey)
-            filter.setValue(1.05, forKey: kCIInputContrastKey)
-            self.iconView.layer?.filters = [filter]
-        }
+        self.contentView.addSubview(self.iconView)	        /// Boost color saturation + brightness of app icons
+	        if let filter = CIFilter(name: "CIColorControls") {
+	            filter.setValue(1.5, forKey: kCIInputSaturationKey)
+	            filter.setValue(0.10, forKey: kCIInputBrightnessKey)
+	            filter.setValue(1.05, forKey: kCIInputContrastKey)
+	            self.iconView.layer?.filters = [filter]
+	        }
         self.iconView.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
             self.iconView.leadingAnchor.constraint(equalTo: self.contentView.leadingAnchor, constant: 1),
