@@ -619,9 +619,12 @@ extension DockWidget: NSScrubberDelegate {
 	}
 
 	/// Return the app's focused window when available, else its first (non-minimized) window.
+	/// CoreFoundation types can't be conditionally downcast with `as?`, so we check
+	/// the CF type ID and then force-cast (safe once the type ID matches).
 	private func minimizeTargetWindow(_ appElement: AXUIElement) -> AXUIElement? {
-		if let focused = copyAttribute(appElement, kAXFocusedWindowAttribute as CFString) as? AXUIElement {
-			return focused
+		if let value = copyAttribute(appElement, kAXFocusedWindowAttribute as CFString),
+		   CFGetTypeID(value) == AXUIElementGetTypeID() {
+			return value as! AXUIElement
 		}
 		if let windows = copyAttribute(appElement, kAXWindowsAttribute as CFString) as? [AXUIElement] {
 			for window in windows {
