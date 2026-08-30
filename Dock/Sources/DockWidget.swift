@@ -114,9 +114,9 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 		case 1...9:
 			activateItem(at: index - 1)
 		case 10:
-			adjustItemHeight(by: -2)
+			adjustItemHeight(by: -1)
 		case 11:
-			adjustItemHeight(by: 2)
+			adjustItemHeight(by: 1)
 		default:
 			break
 		}
@@ -130,6 +130,10 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 		dockScrubber.frame.size.height = newHeight
 		dockScrubber.scrubberLayout = makeDockLayout()
 		dockScrubber.reloadData()
+		/// Force the cached item views to re-resolve their adaptive icon constraints
+		/// so the icons actually grow with the taller item.
+		dockScrubber.layoutSubtreeIfNeeded()
+		cachedDockItemViews.forEach { $0.layoutSubtreeIfNeeded() }
 	}
 	
 	func viewDidAppear() {
