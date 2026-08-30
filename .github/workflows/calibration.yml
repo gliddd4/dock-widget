@@ -33,6 +33,10 @@ jobs:
       - name: Build Calibration.pock
         run: |
           set -o pipefail
+          echo "=== products ==="
+          ls -la build/Build/Products/Release/ || true
+          echo "=== find PockKit framework ==="
+          find build -iname "*PockKit*.framework" 2>/dev/null || true
           POCKKIT=build/Build/Products/Release/PockKit.framework
           mkdir -p Calibration.pock/Contents/MacOS Calibration.pock/Contents/Frameworks
           swiftc -O -target x86_64-apple-macos13.0 \
