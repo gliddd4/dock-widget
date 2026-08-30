@@ -432,14 +432,18 @@ extension DockWidget: DockDelegate {
 			guard let self = self else {
 				return
 			}
-			guard index < self.dockItems.count else {
+			/// Resolve the item's *current* index by identity — the repository's
+			/// `index` refers to its (un-reordered) dock order, which diverges from
+			/// our running-first ordering. Using that stale index highlights the wrong
+			/// item and reveals the wrong name.
+			guard let currentIndex = self.dockItems.firstIndex(where: { $0.diffId == item.diffId }) else {
 				return
 			}
 			if activated {
-				self.applyFrontmost(index)
+				self.applyFrontmost(currentIndex)
 			}else {
 				/// Deactivated: clear the highlight if this was the frontmost item
-				if self.frontmostIndex == index {
+				if self.frontmostIndex == currentIndex {
 					self.applyFrontmost(nil)
 				}
 			}
@@ -584,19 +588,59 @@ extension DockWidget: NSScrubberDelegate {
 		guard let item = item else {
 			return
 		}
-		/// Tapping a running app that is already the frontmost app minimizes it
-		/// (matches the yellow minimize traffic-light), instead of re-activating.
+		/// Tapping a running app toggles it: if a frontmost window is showing,
+		/// minimize it (yellow traffic-light); if all its windows are minimized,
+		/// restore it. Otherwise just bring it forward normally.
 		let isFrontmost = frontmostIndex.map { index in
 			index < dockItems.count ? dockItems[index].diffId == item.diffId : false
 		} ?? false
-		if item.isRunning, !item.isPersistentItem, isFrontmost, item.bundleIdentifier != Constants.kLaunchpadIdentifier {
-			minimizeApp(bundleIdentifier: item.bundleIdentifier)
-			return
+		if item.isRunning, !item.isPersistentItem, item.bundleIdentifier != Constants.kLaunchpadIdentifier,
+		   let app = NSRunningApplication.runningApplications(withBundleIdentifier: item.bundleIdentifier ?? "").first {
+			if isAppMinimized(app) {
+				restoreApp(bundleIdentifier: item.bundleIdentifier)
+				return
+			}
+			if isFrontmost {
+				minimizeApp(bundleIdentifier: item.bundleIdentifier)
+				return
+			}
 		}
 		if !item.isPersistentItem, !item.isRunning, item.bundleIdentifier != Constants.kLaunchpadIdentifier, let itemView = itemView(for: item) {
 			itemView.set(isLaunching: true)
 		}
 		dockRepository.launch(item: item, completion: { _ in })
+	}
+
+	/// Whether the app currently has no visible (non-minimized) window.
+	private func isAppMinimized(_ app: NSRunningApplication) -> Bool {
+		let appElement = AXUIElementCreateApplication(app.processIdentifier)
+		guard let windows = copyAttribute(appElement, kAXWindowsAttribute as CFString) as? [AXUIElement],
+			  !windows.isEmpty else {
+			return false
+		}
+		for window in windows {
+			if let minimized = copyAttribute(window, kAXMinimizedAttribute as CFString) as? NSNumber, minimized.boolValue == false {
+				return false
+			}
+		}
+		return true
+	}
+
+	/// Restore (unminimize) every minimized window of the app and bring it forward.
+	private func restoreApp(bundleIdentifier: String?) {
+		guard let bundleIdentifier = bundleIdentifier,
+			  let app = NSRunningApplication.runningApplications(withBundleIdentifier: bundleIdentifier).first else {
+			return
+		}
+		let appElement = AXUIElementCreateApplication(app.processIdentifier)
+		if let windows = copyAttribute(appElement, kAXWindowsAttribute as CFString) as? [AXUIElement] {
+			for window in windows {
+				if let minimized = copyAttribute(window, kAXMinimizedAttribute as CFString) as? NSNumber, minimized.boolValue {
+					AXUIElementSetAttributeValue(window, kAXMinimizedAttribute as CFString, kCFBooleanFalse as CFTypeRef)
+				}
+			}
+		}
+		app.activate(options: [.activateIgnoringOtherApps])
 	}
 
 	/// Minimize the frontmost window of the given app (yellow traffic-light).
