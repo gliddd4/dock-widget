@@ -123,10 +123,10 @@ final class CornerPanel: NSPanel {
 		setFrameOrigin(hiddenOrigin)
 	}
 
-	private var screen: NSScreen? { NSScreen.main }
+	private var mainScreen: NSScreen? { NSScreen.main }
 
 	private var hiddenOrigin: NSPoint {
-		guard let screen = screen else { return .zero }
+		guard let screen = mainScreen else { return .zero }
 		let size = Self.panelSize
 		let x = kind.onRightSide
 			? screen.frame.maxX - size.width
@@ -135,7 +135,7 @@ final class CornerPanel: NSPanel {
 	}
 
 	private var shownOrigin: NSPoint {
-		guard let screen = screen else { return .zero }
+		guard let screen = mainScreen else { return .zero }
 		let size = Self.panelSize
 		let x = kind.onRightSide
 			? screen.frame.maxX - size.width
