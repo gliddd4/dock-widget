@@ -46,7 +46,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 		let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
 		item.button?.title = "📦"
 		let menu = NSMenu()
-		menu.addItem(withTitle: "CornerDock", action: nil)
+		menu.addItem(NSMenuItem(title: "CornerDock", action: nil, keyEquivalent: ""))
 
 		let loginItem = NSMenuItem(title: "Open at Login", action: #selector(toggleLoginItem), keyEquivalent: "")
 		loginItem.target = self
