@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import CoreImage
 import TinyConstraints
 
 class DockItemView: NSScrubberItemView {
@@ -24,12 +25,17 @@ class DockItemView: NSScrubberItemView {
 	private private(set) var nameLabel:    NSTextField!
 	private var nameLabelWidthConstraint: NSLayoutConstraint?
 
-	/// Load icon view (fills the whole item height, square, adaptive)
-    private func loadIconView() {
+	/// Load icon view (fills the whole item height, square, adaptive)	private func loadIconView() {
         self.iconView = NSImageView(frame: .zero)
         self.iconView.imageScaling = .scaleProportionallyDown
         self.iconView.wantsLayer = true
         self.contentView.addSubview(self.iconView)
+        /// Boost color saturation of app icons
+        if let filter = CIFilter(name: "CIColorControls") {
+            filter.setValue(1.4, forKey: kCIInputSaturationKey)
+            filter.setValue(1.05, forKey: kCIInputContrastKey)
+            self.iconView.layer?.filters = [filter]
+        }
         self.iconView.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
             self.iconView.leadingAnchor.constraint(equalTo: self.contentView.leadingAnchor, constant: 1),
@@ -42,7 +48,7 @@ class DockItemView: NSScrubberItemView {
     /// Load name label (only visible for the frontmost item)
 	private func loadNameLabel() {
 		self.nameLabel = NSTextField(labelWithString: "")
-		self.nameLabel.font = NSFont.systemFont(ofSize: Constants.nameFontSize, weight: .medium)
+		self.nameLabel.font = NSFont.systemFont(ofSize: Constants.nameFontSize, weight: .bold)
 		self.nameLabel.textColor = .white
 		self.nameLabel.lineBreakMode = .byTruncatingTail
 		self.nameLabel.usesSingleLineMode = true
@@ -112,10 +118,10 @@ class DockItemView: NSScrubberItemView {
 		let text = name ?? ""
 		nameLabel.attributedStringValue = NSAttributedString(string: text, attributes: [
 			.foregroundColor: NSColor.white,
-			.font: NSFont.systemFont(ofSize: Constants.nameFontSize, weight: .medium)
+			.font: NSFont.systemFont(ofSize: Constants.nameFontSize, weight: .bold)
 		])
 		let field = NSTextField(labelWithString: text)
-		field.font = NSFont.systemFont(ofSize: Constants.nameFontSize, weight: .medium)
+		field.font = NSFont.systemFont(ofSize: Constants.nameFontSize, weight: .bold)
 		let size = field.sizeThatFits(NSSize(width: Constants.nameMaxWidth, height: Constants.dockItemSize.height))
 		nameWidth = ceil(size.width)
 	}
