@@ -159,8 +159,8 @@ final class CalibrationWidget: NSObject, PKWidget {
         case 4: gridView.virtualHeight += 1   // Option+Right: taller grid
         default: return
         }
-        gridView.virtualHeight = gridView.virtualHeight.clamped(to: 10...100, fallback: 30)
-        gridView.offset = gridView.offset.clamped(to: -30...30, fallback: 0)
+        gridView.virtualHeight = Swift.min(Swift.max(gridView.virtualHeight, 10), 100)
+        gridView.offset = Swift.min(Swift.max(gridView.offset, -30), 30)
         UserDefaults.standard.set(Double(gridView.virtualHeight), forKey: "CalibrationHeight")
         UserDefaults.standard.set(Double(gridView.offset), forKey: "CalibrationOffset")
         gridView.needsDisplay = true
