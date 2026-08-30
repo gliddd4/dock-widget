@@ -19,9 +19,9 @@ class Constants {
     static let dockPlist = NSHomeDirectory().appending("/Library/Preferences/com.apple.dock.plist")
     static let trashPath = NSHomeDirectory().appending("/.Trash")
     /// UI
-    static let dockItemSize:            NSSize  = NSSize(width: 40, height: 38)
+    static let dockItemSize:            NSSize  = NSSize(width: 38, height: 36)
     /// Calibrated vertical offset applied to the dock items (permanent default)
-    static let dockItemYOffsetDefault:  CGFloat = -4
+    static let dockItemYOffsetDefault:  CGFloat = -3
     /// UserDefaults key that overrides the dock item height (live calibration)
     static let calibrationItemHeightKey: String = "PockCustomDockItemHeight"
     /// UserDefaults key that overrides the dock item vertical offset (live calibration)

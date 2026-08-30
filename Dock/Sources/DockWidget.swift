@@ -9,6 +9,7 @@
 import Foundation
 import PockKit
 import TinyConstraints
+import ApplicationServices
 
 class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 	
@@ -583,10 +584,62 @@ extension DockWidget: NSScrubberDelegate {
 		guard let item = item else {
 			return
 		}
+		/// Tapping a running app that is already the frontmost app minimizes it
+		/// (matches the yellow minimize traffic-light), instead of re-activating.
+		let isFrontmost = frontmostIndex.map { index in
+			index < dockItems.count ? dockItems[index].diffId == item.diffId : false
+		} ?? false
+		if item.isRunning, !item.isPersistentItem, isFrontmost, item.bundleIdentifier != Constants.kLaunchpadIdentifier {
+			minimizeApp(bundleIdentifier: item.bundleIdentifier)
+			return
+		}
 		if !item.isPersistentItem, !item.isRunning, item.bundleIdentifier != Constants.kLaunchpadIdentifier, let itemView = itemView(for: item) {
 			itemView.set(isLaunching: true)
 		}
 		dockRepository.launch(item: item, completion: { _ in })
+	}
+
+	/// Minimize the frontmost window of the given app (yellow traffic-light).
+	/// Uses the Accessibility API, so Pock needs Accessibility permission.
+	private func minimizeApp(bundleIdentifier: String?) {
+		guard let bundleIdentifier = bundleIdentifier,
+			  let app = NSRunningApplication.runningApplications(withBundleIdentifier: bundleIdentifier).first else {
+			return
+		}
+		let appElement = AXUIElementCreateApplication(app.processIdentifier)
+		guard let target = minimizeTargetWindow(appElement) else {
+			return
+		}
+		var minimizedRef: CFTypeRef?
+		if AXUIElementCopyAttributeValue(target, kAXMinimizedAttribute as CFString, &minimizedRef) == .success,
+		   let alreadyMinimized = minimizedRef as? NSNumber, alreadyMinimized.boolValue {
+			return
+		}
+		AXUIElementSetAttributeValue(target, kAXMinimizedAttribute as CFString, kCFBooleanTrue as CFTypeRef)
+	}
+
+	/// Return the app's focused window when available, else its first (non-minimized) window.
+	private func minimizeTargetWindow(_ appElement: AXUIElement) -> AXUIElement? {
+		if let focused = copyAttribute(appElement, kAXFocusedWindowAttribute as CFString) as? AXUIElement {
+			return focused
+		}
+		if let windows = copyAttribute(appElement, kAXWindowsAttribute as CFString) as? [AXUIElement] {
+			for window in windows {
+				if let minimized = copyAttribute(window, kAXMinimizedAttribute as CFString) as? NSNumber, minimized.boolValue {
+					continue
+				}
+				return window
+			}
+		}
+		return nil
+	}
+
+	private func copyAttribute(_ element: AXUIElement, _ attribute: CFString) -> CFTypeRef? {
+		var value: CFTypeRef?
+		guard AXUIElementCopyAttributeValue(element, attribute, &value) == .success else {
+			return nil
+		}
+		return value
 	}
 }
 
