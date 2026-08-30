@@ -22,6 +22,8 @@ class Constants {
     static let dockItemSize:            NSSize  = NSSize(width: 38, height: 36)
     /// UserDefaults key that overrides the dock item height (live calibration)
     static let calibrationItemHeightKey: String = "PockCustomDockItemHeight"
+    /// UserDefaults key that overrides the dock item vertical offset (live calibration)
+    static let calibrationItemYOffsetKey: String = "PockCustomDockItemYOffset"
 	static let dockItemIconSize:        NSSize  = NSSize(width: 36, height: 36)
 	static let dockItemBadgeSize:       NSSize  = NSSize(width: 10, height: 10)
     static let dockItemCornerRadius:    CGFloat = 0

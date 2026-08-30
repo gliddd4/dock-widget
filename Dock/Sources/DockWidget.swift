@@ -57,6 +57,17 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 			UserDefaults.standard.set(Double(newValue), forKey: Constants.calibrationItemHeightKey)
 		}
 	}
+
+	/// Current vertical offset of the dock items (moves them up/down within the bar)
+	private var currentItemYOffset: CGFloat {
+		get {
+			let saved = UserDefaults.standard.double(forKey: Constants.calibrationItemYOffsetKey)
+			return CGFloat(saved)
+		}
+		set {
+			UserDefaults.standard.set(Double(newValue), forKey: Constants.calibrationItemYOffsetKey)
+		}
+	}
 	
 	var imageForCustomization: NSImage {
 		return Bundle(for: DockWidget.self).image(forResource: "WidgetPreview")!
@@ -117,6 +128,10 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 			adjustItemHeight(by: -1)
 		case 11:
 			adjustItemHeight(by: 1)
+		case 12:
+			adjustItemYOffset(by: 1)   // "{" : move up
+		case 13:
+			adjustItemYOffset(by: -1)  // "}" : move down
 		default:
 			break
 		}
@@ -135,6 +150,16 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 		dockScrubber.layoutSubtreeIfNeeded()
 		cachedDockItemViews.forEach { $0.layoutSubtreeIfNeeded() }
 	}
+
+	/// Move the dock items vertically by `delta` points within the bar.
+	private func adjustItemYOffset(by delta: CGFloat) {
+		let newOffset = max(min(currentItemYOffset + delta, 20), -20)
+		currentItemYOffset = newOffset
+		NSLog("[DockWidget] calibration item y offset set to %.0f", newOffset)
+		dockScrubber.scrubberLayout = makeDockLayout()
+		dockScrubber.reloadData()
+	}
+}
 	
 	func viewDidAppear() {
 		initialize()
@@ -201,6 +226,7 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 		let itemSize = NSSize(width: currentItemHeight + 2, height: currentItemHeight)
 		layout.itemSize    = itemSize
 		layout.itemSpacing = Preferences[.itemSpacing]
+		layout.itemYOffset = currentItemYOffset
 		layout.frontmostIndex = frontmostIndex
 		layout.nameWidthProvider = { [weak self] index in
 			guard let self = self, index < self.dockItems.count, let name = self.dockItems[index].name else {

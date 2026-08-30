@@ -26,6 +26,9 @@ class DockScrubberLayout: NSScrubberLayout {
 	var itemSize:    NSSize   = Constants.dockItemSize
 	var itemSpacing: CGFloat  = 2
 
+	/// Vertical offset applied to all item frames (move dock up/down)
+	var itemYOffset: CGFloat  = 0
+
 	/// Frames computed in prepareLayout()
 	private var cachedFrames:       [NSRect] = []
 	private var cachedContentSize:  NSSize   = .zero
@@ -45,7 +48,7 @@ class DockScrubberLayout: NSScrubberLayout {
 		var frames: [NSRect] = []
 		var x: CGFloat = 0
 		for i in 0..<count {
-			frames.append(NSRect(x: x, y: 0, width: width(at: i), height: scrubberHeight))
+			frames.append(NSRect(x: x, y: itemYOffset, width: width(at: i), height: scrubberHeight))
 			x += width(at: i) + itemSpacing
 		}
 		cachedFrames = frames
