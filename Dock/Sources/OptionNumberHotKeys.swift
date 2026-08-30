@@ -2,10 +2,7 @@
 //  OptionNumberHotKeys.swift
 //  Dock
 //
-//  Registers global hotkeys for the Touch Bar dock:
-//    Option+1..9  -> switch to the Nth app in the dock
-//    Option+[     -> shrink the dock item (icon) size
-//    Option+]     -> grow the dock item (icon) size
+//  Registers global Option+1..9 hotkeys to switch to the Nth app in the Touch Bar dock.
 //
 
 import Foundation
@@ -19,18 +16,10 @@ final class OptionNumberHotKeys {
 	private var handlerInstalled = false
 	private var hotKeyRefs: [EventHotKeyRef?] = []
 
-	/// (keyCode, modifier, id). ids 1-9 are app switch;
-	/// 10 = shrink, 11 = grow, 12 = move up, 13 = move down.
-	private let hotKeys: [(UInt32, Int, UInt32)] = [
-		(UInt32(kVK_ANSI_1), 1, UInt32(optionKey)), (UInt32(kVK_ANSI_2), 2, UInt32(optionKey)),
-		(UInt32(kVK_ANSI_3), 3, UInt32(optionKey)), (UInt32(kVK_ANSI_4), 4, UInt32(optionKey)),
-		(UInt32(kVK_ANSI_5), 5, UInt32(optionKey)), (UInt32(kVK_ANSI_6), 6, UInt32(optionKey)),
-		(UInt32(kVK_ANSI_7), 7, UInt32(optionKey)), (UInt32(kVK_ANSI_8), 8, UInt32(optionKey)),
-		(UInt32(kVK_ANSI_9), 9, UInt32(optionKey)),
-		(UInt32(kVK_ANSI_LeftBracket), 10, UInt32(optionKey)),
-		(UInt32(kVK_ANSI_RightBracket), 11, UInt32(optionKey)),
-		(UInt32(kVK_ANSI_LeftBracket), 12, UInt32(optionKey | shiftKey)),
-		(UInt32(kVK_ANSI_RightBracket), 13, UInt32(optionKey | shiftKey))
+	private let keyCodes: [UInt32] = [
+		UInt32(kVK_ANSI_1), UInt32(kVK_ANSI_2), UInt32(kVK_ANSI_3),
+		UInt32(kVK_ANSI_4), UInt32(kVK_ANSI_5), UInt32(kVK_ANSI_6),
+		UInt32(kVK_ANSI_7), UInt32(kVK_ANSI_8), UInt32(kVK_ANSI_9)
 	]
 
 	func register(handler: @escaping (Int) -> Void) {
@@ -52,7 +41,7 @@ final class OptionNumberHotKeys {
 				return result
 			}
 			let index = Int(hotKeyID.id)
-			if (1...13).contains(index) {
+			if (1...9).contains(index) {
 				DispatchQueue.main.async {
 					OptionNumberHotKeys.shared.handler?(index)
 				}
@@ -65,17 +54,17 @@ final class OptionNumberHotKeys {
 		}
 		handlerInstalled = true
 		let signature = OSType(0x4F4B4544) // 'OKED'
-		for (keyCode, id, modifiers) in hotKeys {
+		for (offset, keyCode) in keyCodes.enumerated() {
 			var hotKeyRef: EventHotKeyRef?
-			let hotKeyID = EventHotKeyID(signature: signature, id: UInt32(id))
+			let hotKeyID = EventHotKeyID(signature: signature, id: UInt32(offset + 1))
 			let registerStatus = RegisterEventHotKey(keyCode,
-													 modifiers,
+													 UInt32(optionKey),
 													 hotKeyID,
 													 GetApplicationEventTarget(),
 													 0,
 													 &hotKeyRef)
 			if registerStatus != noErr {
-				NSLog("[DockWidget]: Failed to register hotkey for id \(id): \(registerStatus)")
+				NSLog("[DockWidget]: Failed to register hotkey for index \(offset + 1): \(registerStatus)")
 			}
 			hotKeyRefs.append(hotKeyRef)
 		}
