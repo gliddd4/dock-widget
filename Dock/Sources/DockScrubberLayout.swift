@@ -35,7 +35,9 @@ class DockScrubberLayout: NSScrubberLayout {
 			return itemSize.width + Constants.nameHorizontalPadding + min(nameWidth, Constants.nameMaxWidth)
 		}
 		return itemSize.width
-	}		override func prepare() {
+	}
+
+	override func prepare() {
 		super.prepare()
 		let count = scrubber?.numberOfItems ?? 0
 		/// Fill the scrubber's actual height exactly so nothing clips vertically
