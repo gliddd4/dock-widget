@@ -23,7 +23,8 @@ jobs:
           xcodebuild -project Pods/Pods.xcodeproj \
                      -target PockKit \
                      -configuration Release \
-                     -derivedDataPath buildPods \
+                     SYMROOT=$PWD/buildPods \
+                     OBJROOT=$PWD/buildPods/Intermediates \
                      CODE_SIGN_IDENTITY="-" \
                      CODE_SIGN_STYLE=Manual \
                      DEVELOPMENT_TEAM="" \
@@ -33,7 +34,7 @@ jobs:
       - name: Build Calibration.pock
         run: |
           set -o pipefail
-          POCKKIT=buildPods/Build/Products/Release/PockKit.framework
+          POCKKIT=buildPods/Release/PockKit.framework
           mkdir -p Calibration.pock/Contents/MacOS Calibration.pock/Contents/Frameworks
           swiftc -O -target x86_64-apple-macos13.0 \
             -module-name Calibration \
