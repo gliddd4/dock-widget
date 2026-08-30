@@ -68,6 +68,11 @@ final class CalibrationWidget: NSObject, PKWidget {
     private let gridView = CalibrationGridView(frame: .zero)
     private var hotKeys: [EventHotKeyRef?] = []
 
+    /// The widget instance actually being displayed by Pock (not a throwaway
+    /// palette instance). Hotkey events are routed to this instance.
+    private static weak var current: CalibrationWidget?
+    private static var handlerInstalled = false
+
     var imageForCustomization: NSImage {
         return NSImage(size: NSSize(width: 40, height: 40), flipped: false) { rect in
             for i in 0..<8 {
@@ -87,19 +92,24 @@ final class CalibrationWidget: NSObject, PKWidget {
         let defaults = UserDefaults.standard
         gridView.virtualHeight = CGFloat(defaults.double(forKey: "CalibrationHeight").clamped(to: 10...100, fallback: 30))
         gridView.offset = CGFloat(defaults.double(forKey: "CalibrationOffset").clamped(to: -30...30, fallback: 0))
+        CalibrationWidget.installHandler()
         registerHotKeys()
+        CalibrationWidget.current = self
         gridView.needsDisplay = true
     }
 
     func viewDidAppear() {
+        CalibrationWidget.current = self
         gridView.needsDisplay = true
     }
 
     func viewDidDisappear() { }
 
-    // MARK: Hotkeys — Option+Up/Down = move grid, Option+Left/Right = height
+    // MARK: Hotkeys - Option+Up/Down = move grid, Option+Left/Right = height
 
-    private func registerHotKeys() {
+    private static func installHandler() {
+        guard !handlerInstalled else { return }
+        handlerInstalled = true
         var eventType = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
         let status = InstallEventHandler(GetApplicationEventTarget(), { _, event, _ -> OSStatus in
             var hotKeyID = EventHotKeyID()
@@ -112,14 +122,16 @@ final class CalibrationWidget: NSObject, PKWidget {
                                            &hotKeyID)
             guard result == noErr else { return result }
             DispatchQueue.main.async {
-                CalibrationWidget.shared.handleKey(Int(hotKeyID.id))
+                CalibrationWidget.current?.handleKey(Int(hotKeyID.id))
             }
             return noErr
         }, 1, &eventType, nil, nil)
-        guard status == noErr else {
+        if status != noErr {
             NSLog("[Calibration]: Failed to install hotkey handler: \(status)")
-            return
         }
+    }
+
+    private func registerHotKeys() {
         let signature = OSType(0x43414C42) // 'CALB'
         let keys: [(UInt32, Int)] = [
             (UInt32(kVK_UpArrow), 1),
@@ -138,13 +150,8 @@ final class CalibrationWidget: NSObject, PKWidget {
         }
     }
 
-    private static var _shared: CalibrationWidget?
-    static var shared: CalibrationWidget {
-        if _shared == nil { _shared = CalibrationWidget() }
-        return _shared!
-    }
-
     private func handleKey(_ id: Int) {
+        NSLog("[Calibration]: key \(id) received (H:\(gridView.virtualHeight) O:\(gridView.offset)) current=self:\(CalibrationWidget.current === self)")
         switch id {
         case 1: gridView.offset += 1          // Option+Up: move grid up
         case 2: gridView.offset -= 1          // Option+Down: move grid down
@@ -152,6 +159,8 @@ final class CalibrationWidget: NSObject, PKWidget {
         case 4: gridView.virtualHeight += 1   // Option+Right: taller grid
         default: return
         }
+        gridView.virtualHeight = gridView.virtualHeight.clamped(to: 10...100, fallback: 30)
+        gridView.offset = gridView.offset.clamped(to: -30...30, fallback: 0)
         UserDefaults.standard.set(Double(gridView.virtualHeight), forKey: "CalibrationHeight")
         UserDefaults.standard.set(Double(gridView.offset), forKey: "CalibrationOffset")
         gridView.needsDisplay = true
