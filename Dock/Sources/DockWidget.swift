@@ -589,14 +589,18 @@ extension DockWidget: NSScrubberDelegate {
 			return
 		}
 		/// Tapping a running app toggles it: if a frontmost window is showing,
-		/// minimize it (yellow traffic-light); if all its windows are minimized,
+		/// minimize it (yellow traffic-light); if its window is minimized,
 		/// restore it. Otherwise just bring it forward normally.
 		let isFrontmost = frontmostIndex.map { index in
 			index < dockItems.count ? dockItems[index].diffId == item.diffId : false
 		} ?? false
 		if item.isRunning, !item.isPersistentItem, item.bundleIdentifier != Constants.kLaunchpadIdentifier,
 		   let app = NSRunningApplication.runningApplications(withBundleIdentifier: item.bundleIdentifier ?? "").first {
-			if isAppMinimized(app) {
+			/// We remember which apps we minimized, because reading the AX minimized
+			/// state back can fail when "minimize to application icon" hides the
+			/// window from the AX windows list. Drop-out-of-our-list externally.
+			let wasMinimizedHere = minimizedAppIdentifiers.remove(item.bundleIdentifier ?? "") != nil
+			if wasMinimizedHere || isAppMinimized(app) {
 				restoreApp(bundleIdentifier: item.bundleIdentifier)
 				return
 			}
@@ -645,6 +649,10 @@ extension DockWidget: NSScrubberDelegate {
 
 	/// Minimize the frontmost window of the given app (yellow traffic-light).
 	/// Uses the Accessibility API, so Pock needs Accessibility permission.
+	/// Tracked minimized app bundle identifiers so the toggle survives the
+	/// "minimize into application icon" quirk where AX stops listing windows.
+	private var minimizedAppIdentifiers: Set<String> = []
+
 	private func minimizeApp(bundleIdentifier: String?) {
 		guard let bundleIdentifier = bundleIdentifier,
 			  let app = NSRunningApplication.runningApplications(withBundleIdentifier: bundleIdentifier).first else {
@@ -659,7 +667,9 @@ extension DockWidget: NSScrubberDelegate {
 		   let alreadyMinimized = minimizedRef as? NSNumber, alreadyMinimized.boolValue {
 			return
 		}
-		AXUIElementSetAttributeValue(target, kAXMinimizedAttribute as CFString, kCFBooleanTrue as CFTypeRef)
+		if AXUIElementSetAttributeValue(target, kAXMinimizedAttribute as CFString, kCFBooleanTrue as CFTypeRef) == .success {
+			minimizedAppIdentifiers.insert(bundleIdentifier)
+		}
 	}
 
 	/// Return the app's focused window when available, else its first (non-minimized) window.
