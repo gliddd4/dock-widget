@@ -42,7 +42,7 @@ class DockItemView: NSScrubberItemView {
         self.contentView.addSubview(self.iconView)
 		self.iconView.size(Constants.dockItemIconSize)
 		self.iconView.centerYToSuperview()
-		self.iconView.leadingToSuperview(offset: 4)
+		self.iconView.leftToSuperview(offset: 4)
     }
 
     /// Load name label (only visible for the frontmost item)
@@ -150,7 +150,7 @@ class DockItemView: NSScrubberItemView {
 		label.removeAnimation(forKey: "nameReveal")
 		let transition = CATransition()
 		transition.type = .push
-		transition.subtype = show ? .fromLeft : .toLeft
+		transition.subtype = show ? .fromLeft : .fromRight
 		transition.duration = 0.22
 		transition.timingFunction = CAMediaTimingFunction(name: .easeOut)
 		label.add(transition, forKey: "nameReveal")

@@ -36,7 +36,7 @@ class DockScrubberLayout: NSScrubberFlowLayout {
 		return attributes
 	}
 
-	override func scrubberContentSize() -> NSSize {
+	override var scrubberContentSize: NSSize {
 		let count = scrubber?.numberOfItems ?? 0
 		guard count > 0 else {
 			return .zero
