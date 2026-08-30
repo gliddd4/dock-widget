@@ -38,22 +38,21 @@ class DockScrubberLayout: NSScrubberLayout {
 			return itemSize.width + Constants.nameHorizontalPadding + min(nameWidth, Constants.nameMaxWidth)
 		}
 		return itemSize.width
-	}
-
-	override func prepare() {
+	}		override func prepare() {
 		super.prepare()
 		let count = scrubber?.numberOfItems ?? 0
-		/// Fill the scrubber's actual height exactly so nothing clips vertically
-		let scrubberHeight = max(1, scrubber?.bounds.height ?? itemSize.height)
+		/// Always draw items at the configured item size (not the scrubber's
+		/// transient bounds) so re-layouts from offset changes never reset it.
+		let itemHeight = max(1, itemSize.height)
 		var frames: [NSRect] = []
 		var x: CGFloat = 0
 		for i in 0..<count {
-			frames.append(NSRect(x: x, y: itemYOffset, width: width(at: i), height: scrubberHeight))
+			frames.append(NSRect(x: x, y: itemYOffset, width: width(at: i), height: itemHeight))
 			x += width(at: i) + itemSpacing
 		}
 		cachedFrames = frames
 		let totalWidth = count > 0 ? x - itemSpacing : 0
-		cachedContentSize = NSSize(width: totalWidth, height: scrubberHeight)
+		cachedContentSize = NSSize(width: totalWidth, height: itemHeight)
 	}
 
 	override var scrubberContentSize: NSSize {
