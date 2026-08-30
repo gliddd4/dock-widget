@@ -22,9 +22,9 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 	
 	/// UI
 	private var stackView:          NSStackView! = NSStackView(frame: .zero)
-	private var dockScrubber:       NSScrubber!  = NSScrubber(frame: NSRect(x: 0, y: 0, width: 200, height: 30))
+	private var dockScrubber:       NSScrubber!  = NSScrubber(frame: NSRect(x: 0, y: 0, width: 200, height: Constants.dockItemSize.height))
 	private var separator:          NSView! 	 = NSView(frame:     NSRect(x: 0, y: 0, width: 1, 	height: 20))
-	private var persistentScrubber: NSScrubber!  = NSScrubber(frame: NSRect(x: 0, y: 0, width: 50, 	height: 30))
+	private var persistentScrubber: NSScrubber!  = NSScrubber(frame: NSRect(x: 0, y: 0, width: 50, 	height: Constants.dockItemSize.height))
 	
 	private var persistentScrubberWidthConstraint: NSLayoutConstraint {
 		if let previous = persistentScrubber.constraints.first(where: { $0.identifier == "persistentScrubber.width" }) {
@@ -368,6 +368,7 @@ extension DockWidget: DockDelegate {
 				}
 			}
 			self.dockScrubber.scrubberLayout = self.makeDockLayout()
+			self.dockScrubber.reloadData()
 			if let index = self.frontmostIndex {
 				self.dockScrubber.animator().scrollItem(at: index, to: .center)
 			}
@@ -451,6 +452,7 @@ extension DockWidget: DockDelegate {
 		}
 		applyFrontmost(index)
 		dockScrubber.scrubberLayout = makeDockLayout()
+		dockScrubber.reloadData()
 	}
 
 }
