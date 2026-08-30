@@ -32,7 +32,7 @@ class DockItemView: NSScrubberItemView {
         self.contentView.addSubview(self.iconView)
 		self.iconView.size(Constants.dockItemIconSize)
 		self.iconView.centerYToSuperview()
-		self.iconView.leftToSuperview(offset: 2)
+		self.iconView.leftToSuperview(offset: 1)
     }
 
     /// Load name label (only visible for the frontmost item)
