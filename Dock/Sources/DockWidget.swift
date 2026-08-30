@@ -44,6 +44,8 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 	private var cachedPersistentItemViews: [DockItemView] = []
 	private var itemViewWithMouseOver: 	  DockItemView?
 	private var itemViewWithDraggingOver: DockItemView?
+	/// Frontmost tracking for the box + name reveal
+	private var frontmostIndex: Int?
 	
 	var imageForCustomization: NSImage {
 		return Bundle(for: DockWidget.self).image(forResource: "WidgetPreview")!
@@ -71,15 +73,28 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 														  name: .shouldReloadDock, object: nil)
 		/// Hide System Dock if needed
 		if let hideSystemDock: Bool = Preferences[.hideSystemDock] {
-			if hideSystemDock && DockHelper.currentMode == .visible {
-				DockHelper.setDockMode(.hidden)
+			if hideSystemDock && DockHelper.currentMode != .disabled {
+				/// Fully hide the dock (autohide with an enormous delay) so apps get the full screen
+				DockHelper.setDockMode(.disabled)
 			}
 		}else {
 			if DockHelper.currentMode == .disabled {
 				Preferences[.hideSystemDock] = true
-				DockHelper.setDockMode(.hidden)
+				DockHelper.setDockMode(.disabled)
 			}
 		}
+		/// Register Option+1..9 hotkeys for app switching
+		OptionNumberHotKeys.shared.register { [weak self] index in
+			self?.activateItem(at: index - 1)
+		}
+	}
+
+	/// Activate the Nth app in the Touch Bar dock (0-based)
+	private func activateItem(at index: Int) {
+		guard index >= 0, index < dockItems.count else {
+			return
+		}
+		launchItem(dockItems[index])
 	}
 	
 	func viewDidAppear() {
@@ -97,6 +112,7 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 		self.persistentItems.removeAll()
 		self.cachedDockItemViews.removeAll()
 		self.cachedPersistentItemViews.removeAll()
+		self.frontmostIndex = nil
 		self.dockScrubber.reloadData()
 		self.persistentScrubber.reloadData()
 		if notification == nil {
@@ -114,16 +130,14 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 	}
 	
 	@objc private func displayScrubbers() {
-		self.separator.isHidden          = Preferences[.hidePersistentItems] || persistentItems.isEmpty
-		self.persistentScrubber.isHidden = Preferences[.hidePersistentItems] || persistentItems.isEmpty
+		/// Persistent items (Downloads, Trash, folders) are intentionally never shown
+		self.separator.isHidden          = true
+		self.persistentScrubber.isHidden = true
 	}
-	
+
 	@objc private func reloadScrubbersLayout() {
 		cachedDockItemViews.removeAll()
-		let dockLayout              = NSScrubberFlowLayout()
-		dockLayout.itemSize         = Constants.dockItemSize
-		dockLayout.itemSpacing      = Preferences[.itemSpacing]
-		dockScrubber.scrubberLayout = dockLayout
+		dockScrubber.scrubberLayout = makeDockLayout()
 		dockScrubber.reloadData()
 		cachedPersistentItemViews.removeAll()
 		let persistentLayout              = NSScrubberFlowLayout()
@@ -132,29 +146,44 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 		persistentScrubber.scrubberLayout = persistentLayout
 		persistentScrubber.reloadData()
 	}
-	
-	/// Configure dock scrubber
-	private func configureDockScrubber() {
-		let layout = NSScrubberFlowLayout()
+
+	/// Build a variable-width layout that gives the frontmost item room for its name
+	private func makeDockLayout() -> DockScrubberLayout {
+		let layout = DockScrubberLayout()
 		layout.itemSize    = Constants.dockItemSize
 		layout.itemSpacing = Preferences[.itemSpacing]
+		layout.frontmostIndex = frontmostIndex
+		layout.nameWidthProvider = { [weak self] index in
+			guard let self = self, index < self.dockItems.count, let name = self.dockItems[index].name else {
+				return 0
+			}
+			let field = NSTextField(labelWithString: name)
+			field.font = NSFont.systemFont(ofSize: Constants.nameFontSize, weight: .medium)
+			let size = field.sizeThatFits(NSSize(width: Constants.nameMaxWidth, height: Constants.dockItemSize.height))
+			return ceil(size.width)
+		}
+		return layout
+	}
+
+	/// Configure dock scrubber
+	private func configureDockScrubber() {
 		dockScrubber.dataSource = self
 		dockScrubber.delegate = self
 		dockScrubber.showsAdditionalContentIndicators = true
 		dockScrubber.mode = .free
 		dockScrubber.isContinuous = false
 		dockScrubber.itemAlignment = .none
-		dockScrubber.scrubberLayout = layout
+		dockScrubber.scrubberLayout = makeDockLayout()
 		stackView.addArrangedSubview(dockScrubber)
 	}
-	
+
 	/// Configure separator
 	private func configureSeparator() {
 		separator.wantsLayer = true
 		separator.layer?.backgroundColor = NSColor.darkGray.cgColor
 		separator.width(1)
 		separator.height(20)
-		stackView.addArrangedSubview(separator)
+		/// Separator and persistent scrubber are intentionally never added to the stack view
 	}
 	
 	/// Configure persistent scrubber
@@ -170,7 +199,7 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 		persistentScrubber.itemAlignment = .none
 		persistentScrubber.scrubberLayout = layout
 		persistentScrubberWidthConstraint.constant = (Constants.dockItemSize.width + 8) * CGFloat(min(persistentItems.count, 3))
-		stackView.addArrangedSubview(persistentScrubber)
+		/// persistentScrubber is intentionally never added to the stack view
 	}
 	
 	// MARK: ScreenEdgeMouseDelegate (Select, Scroll & Drag)
@@ -318,17 +347,35 @@ extension DockWidget: DockDelegate {
 					}
 				}
 			}
+			self.syncFrontmostIfNeeded()
 		}
 	}
 	
 	func didUpdateActiveItem(_ item: DockItem, at index: Int, activated: Bool) {
 		DispatchQueue.main.async { [weak self] in
-			guard let index = self?.dockItems.firstIndex(of: item), let view = self?.cachedDockItemViews.first(where: { $0.diffId == item.diffId }) else {
+			guard let self = self else {
 				return
 			}
-			view.set(isFrontmost: activated)
+			guard index < self.dockItems.count else {
+				return
+			}
 			if activated {
-				self?.dockScrubber.animator().scrollItem(at: index, to: .center)
+				let previous = self.frontmostIndex
+				self.frontmostIndex = index
+				if let previous = previous, previous != index, previous < self.dockItems.count {
+					self.itemView(for: self.dockItems[previous])?.set(isFrontmost: false)
+				}
+				self.itemView(for: item)?.set(isFrontmost: true)
+			}else {
+				/// Deactivated: clear the box if this was the highlighted item
+				if self.frontmostIndex == index {
+					self.frontmostIndex = nil
+					self.itemView(for: item)?.set(isFrontmost: false)
+				}
+			}
+			self.dockScrubber.scrubberLayout = self.makeDockLayout()
+			if let index = self.frontmostIndex {
+				self.dockScrubber.animator().scrollItem(at: index, to: .center)
 			}
 		}
 	}
@@ -386,10 +433,21 @@ extension DockWidget: DockDelegate {
 		view.diffId = item.diffId
 		view.clear()
 		view.set(icon:        item.icon)
+		view.set(name:        item.name)
 		view.set(hasBadge:    item.hasBadge)
 		view.set(isRunning:   item.isRunning)
 		view.set(isFrontmost: item.isFrontmost)
 		return view
+	}
+
+	/// Track the frontmost app once the initial items are loaded
+	private func syncFrontmostIfNeeded() {
+		guard frontmostIndex == nil, let index = dockItems.firstIndex(where: { $0.isFrontmost }) else {
+			return
+		}
+		frontmostIndex = index
+		dockScrubber.scrubberLayout = makeDockLayout()
+		itemView(for: dockItems[index])?.set(isFrontmost: true)
 	}
 
 }

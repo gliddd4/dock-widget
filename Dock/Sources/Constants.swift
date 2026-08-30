@@ -19,16 +19,14 @@ class Constants {
     static let dockPlist = NSHomeDirectory().appending("/Library/Preferences/com.apple.dock.plist")
     static let trashPath = NSHomeDirectory().appending("/.Trash")
     /// UI
-    static let dockItemSize:            NSSize  = NSSize(width: 40, height: 30)
-	static var dockItemIconSize:        NSSize {
-		let val = Preferences[.hideRunningIndicator] ? 27 : 24
-		return NSSize(width: val, height: val)
-	}
-	static var dockItemDotSize:         NSSize {
-		return Preferences[.hideRunningIndicator] ? .zero : NSSize(width: 3,  height: 3)
-	}
-    static let dockItemBadgeSize:       NSSize  = NSSize(width: 10, height: 10)
-    static let dockItemCornerRadius:    CGFloat = 6
+    static let dockItemSize:            NSSize  = NSSize(width: 36, height: 30)
+	static let dockItemIconSize:        NSSize  = NSSize(width: 28, height: 28)
+	static let dockItemBadgeSize:       NSSize  = NSSize(width: 10, height: 10)
+    static let dockItemCornerRadius:    CGFloat = 0
+	/// Name reveal for the frontmost item
+	static let nameFontSize:            CGFloat = 10
+	static let nameMaxWidth:            CGFloat = 110
+	static let nameHorizontalPadding:   CGFloat = 5
     static let dockItemBounceThreshold: CGFloat = 10
     /// Keys
     static let kDockItemView:       NSUserInterfaceItemIdentifier = NSUserInterfaceItemIdentifier(rawValue: "kDockItemView")

@@ -10,21 +10,21 @@ import Foundation
 import TinyConstraints
 
 class DockItemView: NSScrubberItemView {
-    
+
     /// Core
     private static let kBounceAnimationKey: String = "kBounceAnimationKey"
     private var isAnimating: Bool = false
 	private var isMouseOver: Bool = false
 	public  var diffId: Int!
-    
+
     /// UI
     public private(set) var contentView:   NSView!
     public private(set) var frontmostView: NSView!
     public private(set) var iconView:      NSImageView!
-    public private(set) var dotView:       NSView!
     public private(set) var badgeView:     NSView!
-    
-    /// Load frontmost
+	private private(set) var nameLabel:    NSTextField!
+
+	/// Load frontmost (square box around the item)
     private func loadFrontmost() {
         self.frontmostView = NSView(frame: .zero)
         self.frontmostView.wantsLayer = true
@@ -33,7 +33,7 @@ class DockItemView: NSScrubberItemView {
         self.contentView.addSubview(self.frontmostView, positioned: .below, relativeTo: self.iconView)
 		self.frontmostView.edgesToSuperview()
     }
-    
+
     /// Load icon view
     private func loadIconView() {
         self.iconView = NSImageView(frame: .zero)
@@ -41,22 +41,27 @@ class DockItemView: NSScrubberItemView {
         self.iconView.wantsLayer = true
         self.contentView.addSubview(self.iconView)
 		self.iconView.size(Constants.dockItemIconSize)
-		self.iconView.topToSuperview(offset: 1)
-		self.iconView.centerXToSuperview()
+		self.iconView.centerYToSuperview()
+		self.iconView.leadingToSuperview(offset: 4)
     }
-    
-    /// Load dot view
-    private func loadDotView() {
-        self.dotView = NSView(frame: NSRect(origin: .zero, size: Constants.dockItemDotSize))
-        self.dotView.wantsLayer = true
-        self.dotView.layer?.cornerRadius = Constants.dockItemDotSize.width / 2
-        self.dotView.layer?.backgroundColor = NSColor.lightGray.cgColor
-        self.contentView.addSubview(self.dotView, positioned: .above, relativeTo: self.iconView)
-		self.dotView.size(Constants.dockItemDotSize)
-		self.dotView.bottomToSuperview()
-		self.dotView.centerXToSuperview()
-    }
-    
+
+    /// Load name label (only visible for the frontmost item)
+	private func loadNameLabel() {
+		self.nameLabel = NSTextField(labelWithString: "")
+		self.nameLabel.font = NSFont.systemFont(ofSize: Constants.nameFontSize, weight: .medium)
+		self.nameLabel.textColor = .white
+		self.nameLabel.lineBreakMode = .byTruncatingTail
+		self.nameLabel.usesSingleLineMode = true
+		self.nameLabel.cell?.truncatesLastVisibleLine = true
+		self.nameLabel.alignment = .left
+		self.nameLabel.wantsLayer = true
+		self.nameLabel.layer?.opacity = 0
+		self.contentView.addSubview(self.nameLabel)
+		self.nameLabel.centerYToSuperview()
+		self.nameLabel.leadingToTrailing(of: self.iconView, offset: Constants.nameHorizontalPadding)
+		self.nameLabel.width(0)
+	}
+
     /// Load badge view
     private func loadBadgeView() {
         self.badgeView = NSView(frame: NSRect(origin: .zero, size: Constants.dockItemBadgeSize))
@@ -68,7 +73,7 @@ class DockItemView: NSScrubberItemView {
 		self.badgeView.top(to: iconView, offset: -1)
 		self.badgeView.centerXToSuperview(offset: 10)
     }
-    
+
     /// Init
     override init(frame frameRect: NSRect) {
         super.init(frame: NSRect(origin: .zero, size: Constants.dockItemSize))
@@ -76,55 +81,84 @@ class DockItemView: NSScrubberItemView {
         self.addSubview(self.contentView)
 		self.contentView.edgesToSuperview()
     }
-    
+
     required init?(coder decoder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
-    
+
     func clear() {
         self.set(icon:        nil)
+        self.set(name:        nil)
         self.set(hasBadge:    false)
         self.set(isRunning:   false)
         self.set(isFrontmost: false)
     }
-    
+
     override func viewDidChangeBackingProperties() {
         super.viewDidChangeBackingProperties()
         layer?.contentsScale                = window?.backingScaleFactor ?? 1
         iconView?.layer?.contentsScale      = window?.backingScaleFactor ?? 1
         badgeView?.layer?.contentsScale     = window?.backingScaleFactor ?? 1
-        dotView?.layer?.contentsScale       = window?.backingScaleFactor ?? 1
         frontmostView?.layer?.contentsScale = window?.backingScaleFactor ?? 1
+        nameLabel?.layer?.contentsScale     = window?.backingScaleFactor ?? 1
     }
-    
+
     public func set(isLaunching: Bool) {
         if isLaunching { startBounceAnimation() } else { stopBounceAnimation() }
     }
     public var isLaunching: Bool { return self.isAnimating }
-    
+
     public func set(icon: NSImage?) {
         if iconView == nil { loadIconView() }
         iconView.image = icon
     }
-    
-    public func set(isFrontmost: Bool) {
-        if frontmostView == nil { loadFrontmost() }
-        frontmostView.layer?.backgroundColor = (isFrontmost ? NSColor.darkGray : NSColor.clear).cgColor
-    }
-    public var isFrontmost: Bool { return frontmostView.layer?.backgroundColor == NSColor.darkGray.cgColor }
-    
+
+	public func set(name: String?) {
+		if nameLabel == nil { loadNameLabel() }
+		nameLabel.stringValue = name ?? ""
+	}
+
+	/// Closed apps are dimmed to 50% opacity (replaces the running-indicator dot)
     public func set(isRunning: Bool) {
-        if dotView == nil { loadDotView() }
-		dotView.layer?.opacity = isRunning && !Preferences[.hideRunningIndicator] ? 1 : 0
+        if iconView == nil { loadIconView() }
+		iconView.layer?.opacity = isRunning ? 1 : 0.5
     }
-    public var isRunning: Bool { return dotView.layer?.opacity == 1 }
-    
+    public var isRunning: Bool { return iconView.layer?.opacity == 1 }
+
     public func set(hasBadge: Bool) {
         if badgeView == nil { loadBadgeView() }
         badgeView.layer?.opacity = hasBadge ? 1 : 0
     }
     public var hasBadge: Bool { return badgeView.layer?.opacity == 1 }
-	
+
+	/// Frontmost: square box + animated name reveal
+	public func set(isFrontmost: Bool) {
+		if frontmostView == nil { loadFrontmost() }
+		if nameLabel == nil { loadNameLabel() }
+		let box = frontmostView.layer!
+		box.removeAnimation(forKey: "boxTransition")
+		let transition = CATransition()
+		transition.type = .fade
+		transition.duration = 0.2
+		box.add(transition, forKey: "boxTransition")
+		box.backgroundColor = (isFrontmost ? NSColor.darkGray : NSColor.clear).cgColor
+		revealName(isFrontmost)
+	}
+
+	private func revealName(_ show: Bool) {
+		let label = nameLabel.layer!
+		label.removeAnimation(forKey: "nameReveal")
+		let transition = CATransition()
+		transition.type = .push
+		transition.subtype = show ? .fromLeft : .toLeft
+		transition.duration = 0.22
+		transition.timingFunction = CAMediaTimingFunction(name: .easeOut)
+		label.add(transition, forKey: "nameReveal")
+		label.opacity = show ? 1 : 0
+	}
+
+	public var isFrontmost: Bool { return frontmostView.layer?.backgroundColor == NSColor.darkGray.cgColor }
+
 	public func set(isMouseOver: Bool) {
 		guard isMouseOver else {
 			iconView.shadow = nil
@@ -136,7 +170,7 @@ class DockItemView: NSScrubberItemView {
 		shadow.shadowColor		= NSColor.white
 		iconView.shadow = shadow
 	}
-    
+
 }
 
 extension DockItemView: CAAnimationDelegate {

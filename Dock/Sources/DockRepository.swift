@@ -205,6 +205,10 @@ extension DockRepository {
 				NSLog("[DockWidget]: Can't get app bundle identifier")
 				continue
 			}
+			/// Skip Launchpad and any non-app tile
+			guard bundleIdentifier != Constants.kLaunchpadIdentifier else {
+				continue
+			}
 			/// Check if item already exists
 			guard defaultItems.contains(where: { $0.bundleIdentifier == bundleIdentifier }) == false else {
 				continue
@@ -304,7 +308,10 @@ extension DockRepository {
 	/// Create item
 	private func createItem(for app: NSRunningApplication) -> DockItem? {
 		/// Create `DockItem` object
-		guard app.activationPolicy == .regular, let id = app.bundleIdentifier, id != Constants.kFinderIdentifier else {
+		guard app.activationPolicy == .regular,
+			  let id = app.bundleIdentifier,
+			  id != Constants.kFinderIdentifier,
+			  id != Constants.kLaunchpadIdentifier else {
 			return nil
 		}
 		guard let localizedName = app.localizedName,

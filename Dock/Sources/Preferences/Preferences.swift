@@ -99,19 +99,19 @@ internal struct Preferences {
                 case .itemSpacing:
                     return CGFloat(8) as! T
                 case .hideSystemDock:
-                    return false as! T
+                    return true as! T
                 case .hideFinder:
                     return false as! T
                 case .showOnlyRunningApps:
                     return false as! T
                 case .hideRunningIndicator:
-                    return false as! T
+                    return true as! T
                 case .hideTrash:
                     return false as! T
                 case .hidePersistentItems:
                     return false as! T
                 case .openFinderInsidePock:
-                    return true as! T
+                    return false as! T
                 }
             }
             return value
@@ -124,12 +124,12 @@ internal struct Preferences {
         Preferences[.notificationBadgeRefreshInterval] = 10
         Preferences[.appExposeSettings] = "ifNeeded"
         Preferences[.itemSpacing] = CGFloat(8)
-        Preferences[.hideSystemDock] = false
+        Preferences[.hideSystemDock] = true
         Preferences[.hideFinder] = false
         Preferences[.showOnlyRunningApps] = false
-        Preferences[.hideRunningIndicator] = false
+        Preferences[.hideRunningIndicator] = true
         Preferences[.hideTrash] = false
         Preferences[.hidePersistentItems] = false
-        Preferences[.openFinderInsidePock] = true
+        Preferences[.openFinderInsidePock] = false
     }
 }

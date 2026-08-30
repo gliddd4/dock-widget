@@ -13,6 +13,8 @@
 		3474195725645C1600C2DD20 /* SystemSoundHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3474195625645C1600C2DD20 /* SystemSoundHelper.swift */; };
 		34B6D10925A7542C001C925C /* Pods_Dock.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E4FAF7D65593AF206FD9F07A /* Pods_Dock.framework */; };
 		34C64DAD25699186006CB7F4 /* DockRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34C64DAC25699186006CB7F4 /* DockRepository.swift */; };
+		C10000010000000000000001 /* DockScrubberLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = C10000010000000000000002 /* DockScrubberLayout.swift */; };
+		C10000010000000000000003 /* OptionNumberHotKeys.swift in Sources */ = {isa = PBXBuildFile; fileRef = C10000010000000000000004 /* OptionNumberHotKeys.swift */; };
 		34D4A1BF246DE4FA005FA975 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 34D4A1B7246DE4FA005FA975 /* Localizable.strings */; };
 		34DF322F246DCCE8009B46B9 /* DockItemView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34DF3210246DCCE7009B46B9 /* DockItemView.swift */; };
 		34DF3230246DCCE8009B46B9 /* DockWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34DF3211246DCCE7009B46B9 /* DockWidget.swift */; };
@@ -49,6 +51,8 @@
 		34AFC990246DC8E00068B3B6 /* Podfile */ = {isa = PBXFileReference; lastKnownFileType = text; name = Podfile; path = ../Podfile; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.ruby; };
 		34AFC994246DC8E00068B3B6 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		34C64DAC25699186006CB7F4 /* DockRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockRepository.swift; sourceTree = "<group>"; };
+		C10000010000000000000002 /* DockScrubberLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockScrubberLayout.swift; sourceTree = "<group>"; };
+		C10000010000000000000004 /* OptionNumberHotKeys.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OptionNumberHotKeys.swift; sourceTree = "<group>"; };
 		34C64DE0256AC8EB006CB7F4 /* AXSwift.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = AXSwift.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		34C64DF8256ACA72006CB7F4 /* AXSwift.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = AXSwift.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		34D4A1B8246DE4FA005FA975 /* de */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = de; path = de.lproj/Localizable.strings; sourceTree = "<group>"; };
@@ -170,6 +174,8 @@
 				34DF322E246DCCE8009B46B9 /* DockItem.swift */,
 				34DF3210246DCCE7009B46B9 /* DockItemView.swift */,
 				34C64DAC25699186006CB7F4 /* DockRepository.swift */,
+				C10000010000000000000002 /* DockScrubberLayout.swift */,
+				C10000010000000000000004 /* OptionNumberHotKeys.swift */,
 				34DF3211246DCCE7009B46B9 /* DockWidget.swift */,
 				34DF3217246DCCE8009B46B9 /* FileMonitor.swift */,
 				34DF3246246DCE2C009B46B9 /* Bridging-Header.h */,
@@ -457,6 +463,8 @@
 			files = (
 				34DF3231246DCCE8009B46B9 /* AppExposeItem.swift in Sources */,
 				34C64DAD25699186006CB7F4 /* DockRepository.swift in Sources */,
+				C10000010000000000000001 /* DockScrubberLayout.swift in Sources */,
+				C10000010000000000000003 /* OptionNumberHotKeys.swift in Sources */,
 				34DF3233246DCCE8009B46B9 /* AppExposeController.swift in Sources */,
 				34DF3237246DCCE8009B46B9 /* EventStream.swift in Sources */,
 				34DF3234246DCCE8009B46B9 /* FileMonitor.swift in Sources */,
@@ -590,7 +598,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 10.13;
+				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -644,7 +652,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 10.13;
+				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = macosx;
@@ -669,7 +677,7 @@
 					"@executable_path/../Frameworks",
 					"@loader_path/../Frameworks",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 10.13;
+				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				MARKETING_VERSION = 1.4;
 				PRODUCT_BUNDLE_IDENTIFIER = com.pigigaldi.pock.Dock;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -698,7 +706,7 @@
 					"@executable_path/../Frameworks",
 					"@loader_path/../Frameworks",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 10.13;
+				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				MARKETING_VERSION = 1.4;
 				PRODUCT_BUNDLE_IDENTIFIER = com.pigigaldi.pock.Dock;
 				PRODUCT_NAME = "$(TARGET_NAME)";
