@@ -62,7 +62,7 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 	private var currentItemYOffset: CGFloat {
 		get {
 			let saved = UserDefaults.standard.double(forKey: Constants.calibrationItemYOffsetKey)
-			return CGFloat(saved)
+			return saved != 0 ? CGFloat(saved) : Constants.dockItemYOffsetDefault
 		}
 		set {
 			UserDefaults.standard.set(Double(newValue), forKey: Constants.calibrationItemYOffsetKey)
