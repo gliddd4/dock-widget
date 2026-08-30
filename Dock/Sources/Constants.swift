@@ -13,8 +13,8 @@ class Constants {
 	static let NSTouchBarView: 				String = "NSTouchBarView"
 	static let NSTouchBarItemContainerView: String = "NSTouchBarItemContainerView"
     /// Known identifiers
-    static let kFinderIdentifier: 	 String = "com.apple.finder"
-	static let kLaunchpadIdentifier: String = "com.apple.launchpad.launcher"
+    static let kFinderIdentifier: 	 String = "com.apple.finder"    static let kLaunchpadIdentifier: String = "com.apple.launchpad.launcher"
+	static let kSettingsIdentifier:  String = "com.apple.systempreferences"
     /// Known paths
     static let dockPlist = NSHomeDirectory().appending("/Library/Preferences/com.apple.dock.plist")
     static let trashPath = NSHomeDirectory().appending("/.Trash")

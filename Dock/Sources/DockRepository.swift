@@ -388,6 +388,12 @@ extension DockRepository {
 			return
 		}
 		for item in dockItems {
+			/// Skip badges that would clip or look wrong next to certain fixed
+			/// dock items (e.g. the Settings app's octagonal tile).
+			if item.bundleIdentifier == Constants.kSettingsIdentifier {
+				item.badge = nil
+				continue
+			}
 			item.badge = PockDockHelper().getBadgeCountForItem(withName: item.name)
 		}
 		delegate.didUpdateBadge(for: self.dockItems)
