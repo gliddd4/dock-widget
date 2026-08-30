@@ -347,6 +347,7 @@ extension DockWidget: DockDelegate {
 					}
 				}
 			}
+			self.reorderRunningAppsFirst()
 			self.syncFrontmostIfNeeded()
 		}
 	}
@@ -433,6 +434,25 @@ extension DockWidget: DockDelegate {
 		view.set(isRunning:   item.isRunning)
 		view.set(isFrontmost: frontmostIndex.map { dockItems[$0].diffId } == item.diffId)
 		return view
+	}
+
+	/// Move running apps to the left while keeping their relative dock order
+	/// (stable partition: running first, then closed apps in original order)
+	private func reorderRunningAppsFirst() {
+		let running = dockItems.filter { $0.isRunning }
+		let closed  = dockItems.filter { !$0.isRunning }
+		guard running.count > 0, closed.count > 0 else {
+			return
+		}
+		/// Remap frontmostIndex so it follows the same app after reordering
+		if let frontmostIndex = frontmostIndex, frontmostIndex < dockItems.count {
+			let frontmostDiffId = dockItems[frontmostIndex].diffId
+			self.frontmostIndex = running.firstIndex(where: { $0.diffId == frontmostDiffId }) ??
+				closed.firstIndex(where: { $0.diffId == frontmostDiffId }).map { running.count + $0 }
+		}
+		dockItems = running + closed
+		dockScrubber.scrubberLayout = makeDockLayout()
+		dockScrubber.reloadData()
 	}
 
 	/// Single source of truth for the frontmost highlight: clears every other

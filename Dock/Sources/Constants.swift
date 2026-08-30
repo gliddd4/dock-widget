@@ -27,6 +27,8 @@ class Constants {
 	static let nameFontSize:            CGFloat = 11
 	static let nameMaxWidth:            CGFloat = 110
 	static let nameHorizontalPadding:   CGFloat = 5
+	/// Shifts items down so they sit fully inside the visible bar
+	static let dockItemVerticalOffset:  CGFloat = 5
     static let dockItemBounceThreshold: CGFloat = 10
     /// Keys
     static let kDockItemView:       NSUserInterfaceItemIdentifier = NSUserInterfaceItemIdentifier(rawValue: "kDockItemView")

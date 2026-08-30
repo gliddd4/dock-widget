@@ -105,8 +105,12 @@ class DockItemView: NSScrubberItemView {
 
 	public func set(name: String?) {
 		if nameLabel == nil { loadNameLabel() }
-		nameLabel.stringValue = name ?? ""
-		let field = NSTextField(labelWithString: name ?? "")
+		let text = name ?? ""
+		nameLabel.attributedStringValue = NSAttributedString(string: text, attributes: [
+			.foregroundColor: NSColor.white,
+			.font: NSFont.systemFont(ofSize: Constants.nameFontSize, weight: .medium)
+		])
+		let field = NSTextField(labelWithString: text)
 		field.font = NSFont.systemFont(ofSize: Constants.nameFontSize, weight: .medium)
 		let size = field.sizeThatFits(NSSize(width: Constants.nameMaxWidth, height: Constants.dockItemSize.height))
 		nameWidth = ceil(size.width)

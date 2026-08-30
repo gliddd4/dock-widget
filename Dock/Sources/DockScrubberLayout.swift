@@ -35,14 +35,13 @@ class DockScrubberLayout: NSScrubberLayout {
 			return itemSize.width + Constants.nameHorizontalPadding + min(nameWidth, Constants.nameMaxWidth)
 		}
 		return itemSize.width
-	}
-
-	override func prepare() {
+	}		override func prepare() {
 		super.prepare()
 		let count = scrubber?.numberOfItems ?? 0
-		/// Center items vertically within the scrubber so nothing clips at the top
+		/// Center items vertically within the scrubber, nudged down 5pt so the
+		/// icons sit fully inside the visible bar instead of clipping at the top
 		let scrubberHeight = scrubber?.bounds.height ?? itemSize.height
-		let y = max(0, (scrubberHeight - itemSize.height) / 2)
+		let y = max(0, (scrubberHeight - itemSize.height) / 2) + Constants.dockItemVerticalOffset
 		var frames: [NSRect] = []
 		var x: CGFloat = 0
 		for i in 0..<count {
