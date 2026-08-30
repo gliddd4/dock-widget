@@ -68,7 +68,7 @@ class DockScrubberLayout: NSScrubberLayout {
 		return Set(cachedFrames.indices.compactMap { layoutAttributesForItem(at: $0) })
 	}
 
-	override func shouldInvalidateLayout(forChangeFromVisibleRect fromVisibleRect: NSRect, toVisibleRect: NSRect) -> Bool {
+	override func shouldInvalidateLayoutForChange(fromVisibleRect: NSRect, toVisibleRect: NSRect) -> Bool {
 		return true
 	}
 
