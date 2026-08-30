@@ -40,15 +40,18 @@ class DockScrubberLayout: NSScrubberLayout {
 	override func prepare() {
 		super.prepare()
 		let count = scrubber?.numberOfItems ?? 0
+		/// Center items vertically within the scrubber so nothing clips at the top
+		let scrubberHeight = scrubber?.bounds.height ?? itemSize.height
+		let y = max(0, (scrubberHeight - itemSize.height) / 2)
 		var frames: [NSRect] = []
 		var x: CGFloat = 0
 		for i in 0..<count {
-			frames.append(NSRect(x: x, y: 0, width: width(at: i), height: itemSize.height))
+			frames.append(NSRect(x: x, y: y, width: width(at: i), height: itemSize.height))
 			x += width(at: i) + itemSpacing
 		}
 		cachedFrames = frames
 		let totalWidth = count > 0 ? x - itemSpacing : 0
-		cachedContentSize = NSSize(width: totalWidth, height: itemSize.height)
+		cachedContentSize = NSSize(width: totalWidth, height: scrubberHeight)
 	}
 
 	override var scrubberContentSize: NSSize {

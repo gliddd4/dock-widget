@@ -19,8 +19,8 @@ class Constants {
     static let dockPlist = NSHomeDirectory().appending("/Library/Preferences/com.apple.dock.plist")
     static let trashPath = NSHomeDirectory().appending("/.Trash")
     /// UI
-    static let dockItemSize:            NSSize  = NSSize(width: 40, height: 40)
-	static let dockItemIconSize:        NSSize  = NSSize(width: 38, height: 38)
+    static let dockItemSize:            NSSize  = NSSize(width: 38, height: 36)
+	static let dockItemIconSize:        NSSize  = NSSize(width: 36, height: 36)
 	static let dockItemBadgeSize:       NSSize  = NSSize(width: 10, height: 10)
     static let dockItemCornerRadius:    CGFloat = 0
 	/// Name reveal for the frontmost item
