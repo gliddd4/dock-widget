@@ -41,6 +41,7 @@ jobs:
             -F "$(dirname "$POCKKIT")" \
             -framework AppKit -framework PockKit \
             -Xlinker -rpath -Xlinker @executable_path/../Frameworks \
+            -Xlinker -bundle -Xlinker -bundle_loader -Xlinker /usr/bin/true \
             -o Calibration.pock/Contents/MacOS/Calibration
           cp -R "$POCKKIT" Calibration.pock/Contents/Frameworks/
           cat > Calibration.pock/Contents/Info.plist <<'PLIST'
