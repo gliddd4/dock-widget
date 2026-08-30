@@ -14,27 +14,26 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install CocoaPods + build PockKit framework
+      - name: Install CocoaPods + build Dock workspace
         run: |
           if ! command -v pod >/dev/null 2>&1; then
             sudo gem install cocoapods -N
           fi
           pod install --repo-update
-          xcodebuild -project Pods/Pods.xcodeproj \
-                     -target PockKit \
+          xcodebuild -workspace Dock.xcworkspace \
+                     -scheme Dock \
                      -configuration Release \
-                     SYMROOT=$PWD/buildPods \
-                     OBJROOT=$PWD/buildPods/Intermediates \
+                     -derivedDataPath build \
                      CODE_SIGN_IDENTITY="-" \
                      CODE_SIGN_STYLE=Manual \
                      DEVELOPMENT_TEAM="" \
                      ARCHS=x86_64 ONLY_ACTIVE_ARCH=YES \
-                     build 2>&1 | tee /dev/null | tail -1
+                     build 2>&1 | tee build.log | tail -3
 
       - name: Build Calibration.pock
         run: |
           set -o pipefail
-          POCKKIT=buildPods/Release/PockKit.framework
+          POCKKIT=build/Build/Products/Release/PockKit.framework
           mkdir -p Calibration.pock/Contents/MacOS Calibration.pock/Contents/Frameworks
           swiftc -O -target x86_64-apple-macos13.0 \
             -module-name Calibration \
@@ -72,4 +71,5 @@ jobs:
           name: Calibration.pock
           path: |
             Calibration.pock.zip
+            build.log
           if-no-files-found: ignore
