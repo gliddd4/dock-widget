@@ -2,13 +2,19 @@
 //  DockScrubberLayout.swift
 //  Dock
 //
-//  Flow layout that gives the frontmost item extra width to fit its revealed name.
+//  Custom scrubber layout that gives the frontmost item extra width to
+//  fit its revealed name, pushing the other items to the side.
+//
+//  We subclass NSScrubberLayout directly (not NSScrubberFlowLayout):
+//  the flow layout caches item frames from its own itemSize/itemSpacing
+//  and never consults a subclass override of layoutAttributesForItem,
+//  so per-item widths would silently be ignored.
 //
 
 import Foundation
 import AppKit
 
-class DockScrubberLayout: NSScrubberFlowLayout {
+class DockScrubberLayout: NSScrubberLayout {
 
 	/// Index of the frontmost item (gets extra width for its name)
 	var frontmostIndex: Int? = nil
@@ -16,37 +22,54 @@ class DockScrubberLayout: NSScrubberFlowLayout {
 	/// Returns the measured name width for an item (0 if no name to show)
 	var nameWidthProvider: ((Int) -> CGFloat)? = nil
 
+	/// Item metrics (same names as NSScrubberFlowLayout for compatibility)
+	var itemSize:    NSSize   = Constants.dockItemSize
+	var itemSpacing: CGFloat  = 2
+
+	/// Frames computed in prepareLayout()
+	private var cachedFrames:       [NSRect] = []
+	private var cachedContentSize:  NSSize   = .zero
+
 	private func width(at index: Int) -> CGFloat {
 		if index == frontmostIndex, let nameWidth = nameWidthProvider?(index), nameWidth > 0 {
-			return Constants.dockItemSize.width + Constants.nameHorizontalPadding + min(nameWidth, Constants.nameMaxWidth)
+			return itemSize.width + Constants.nameHorizontalPadding + min(nameWidth, Constants.nameMaxWidth)
 		}
-		return Constants.dockItemSize.width
+		return itemSize.width
 	}
 
-	override func layoutAttributesForItem(at index: Int) -> NSScrubberLayoutAttributes {
-		let attributes = NSScrubberLayoutAttributes(forItemAt: index)
+	override func prepareLayout() {
+		super.prepareLayout()
+		let count = scrubber?.numberOfItems ?? 0
+		var frames: [NSRect] = []
 		var x: CGFloat = 0
-		if index > 0 {
-			for i in 0..<index {
-				x += width(at: i) + itemSpacing
-			}
+		for i in 0..<count {
+			frames.append(NSRect(x: x, y: 0, width: width(at: i), height: itemSize.height))
+			x += width(at: i) + itemSpacing
 		}
-		attributes.frame = NSRect(origin: NSPoint(x: x, y: 0),
-								  size: NSSize(width: width(at: index), height: itemSize.height))
-		return attributes
+		cachedFrames = frames
+		let totalWidth = count > 0 ? x - itemSpacing : 0
+		cachedContentSize = NSSize(width: totalWidth, height: itemSize.height)
 	}
 
 	override var scrubberContentSize: NSSize {
-		let count = scrubber?.numberOfItems ?? 0
-		guard count > 0 else {
-			return .zero
+		return cachedContentSize
+	}
+
+	override func layoutAttributesForItem(at index: Int) -> NSScrubberLayoutAttributes? {
+		guard index >= 0, index < cachedFrames.count else {
+			return nil
 		}
-		var total: CGFloat = 0
-		for i in 0..<count {
-			total += width(at: i)
-		}
-		total += itemSpacing * CGFloat(count - 1)
-		return NSSize(width: total, height: itemSize.height)
+		let attributes = NSScrubberLayoutAttributes(forItemAt: index)
+		attributes.frame = cachedFrames[index]
+		return attributes
+	}
+
+	override func layoutAttributesForItems(in rect: NSRect) -> [NSScrubberLayoutAttributes] {
+		return cachedFrames.indices.compactMap { layoutAttributesForItem(at: $0) }
+	}
+
+	override func shouldInvalidateLayout(forBoundsChange newBounds: NSRect) -> Bool {
+		return true
 	}
 
 }
