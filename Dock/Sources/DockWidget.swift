@@ -46,6 +46,28 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 	private var itemViewWithDraggingOver: DockItemView?
 	/// Frontmost tracking for the box + name reveal
 	private var frontmostIndex: Int?
+
+	/// Current adjustable dock item height (icon grows via the adaptive constraints)
+	private var currentItemHeight: CGFloat {
+		get {
+			let saved = UserDefaults.standard.double(forKey: Constants.calibrationItemHeightKey)
+			return saved > 0 ? CGFloat(saved) : Constants.dockItemSize.height
+		}
+		set {
+			UserDefaults.standard.set(Double(newValue), forKey: Constants.calibrationItemHeightKey)
+		}
+	}
+
+	/// Current vertical offset of the dock items (moves them up/down within the bar)
+	private var currentItemYOffset: CGFloat {
+		get {
+			let saved = UserDefaults.standard.double(forKey: Constants.calibrationItemYOffsetKey)
+			return saved != 0 ? CGFloat(saved) : Constants.dockItemYOffsetDefault
+		}
+		set {
+			UserDefaults.standard.set(Double(newValue), forKey: Constants.calibrationItemYOffsetKey)
+		}
+	}
 	
 	var imageForCustomization: NSImage {
 		return Bundle(for: DockWidget.self).image(forResource: "WidgetPreview")!
@@ -83,9 +105,9 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 				DockHelper.setDockMode(.disabled)
 			}
 		}
-		/// Register Option+1..9 hotkeys for app switching
+		/// Register Option+1..9 hotkeys for app switching, plus Option+[/] to resize
 		OptionNumberHotKeys.shared.register { [weak self] index in
-			self?.activateItem(at: index - 1)
+			self?.handleHotKey(index)
 		}
 	}
 
@@ -97,6 +119,46 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 		launchItem(dockItems[index])
 	}
 
+	/// Route Option hotkeys. 1-9 = app switch, 10 = shrink, 11 = grow.
+	private func handleHotKey(_ index: Int) {
+		switch index {
+		case 1...9:
+			activateItem(at: index - 1)
+		case 10:
+			adjustItemHeight(by: -1)
+		case 11:
+			adjustItemHeight(by: 1)
+		case 12:
+			adjustItemYOffset(by: 1)   // "{" : move up
+		case 13:
+			adjustItemYOffset(by: -1)  // "}" : move down
+		default:
+			break
+		}
+	}
+
+	/// Grow/shrink the dock item height by `delta` points and re-layout live.
+	private func adjustItemHeight(by delta: CGFloat) {
+		let newHeight = min(max(currentItemHeight + delta, 20), 48)
+		currentItemHeight = newHeight
+		NSLog("[DockWidget] calibration item height set to %.0f", newHeight)
+		dockScrubber.frame.size.height = newHeight
+		dockScrubber.scrubberLayout = makeDockLayout()
+		dockScrubber.reloadData()
+		/// Force the cached item views to re-resolve their adaptive icon constraints
+		/// so the icons actually grow with the taller item.
+		dockScrubber.layoutSubtreeIfNeeded()
+		cachedDockItemViews.forEach { $0.layoutSubtreeIfNeeded() }
+	}
+
+	/// Move the dock items vertically by `delta` points within the bar.
+	private func adjustItemYOffset(by delta: CGFloat) {
+		let newOffset = max(min(currentItemYOffset + delta, 20), -20)
+		currentItemYOffset = newOffset
+		NSLog("[DockWidget] calibration item y offset set to %.0f", newOffset)
+		dockScrubber.scrubberLayout = makeDockLayout()
+		dockScrubber.reloadData()
+	}
 	
 	func viewDidAppear() {
 		initialize()
@@ -160,9 +222,10 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 	/// Build a variable-width layout that gives the frontmost item room for its name
 	private func makeDockLayout() -> DockScrubberLayout {
 		let layout = DockScrubberLayout()
-		layout.itemSize    = Constants.dockItemSize
+		let itemSize = NSSize(width: currentItemHeight + 2, height: currentItemHeight)
+		layout.itemSize    = itemSize
 		layout.itemSpacing = Preferences[.itemSpacing]
-		layout.itemYOffset = Constants.dockItemYOffsetDefault
+		layout.itemYOffset = currentItemYOffset
 		layout.frontmostIndex = frontmostIndex
 		layout.nameWidthProvider = { [weak self] index in
 			guard let self = self, index < self.dockItems.count, let name = self.dockItems[index].name else {

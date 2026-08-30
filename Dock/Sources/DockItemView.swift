@@ -39,9 +39,9 @@ class DockItemView: NSScrubberItemView {
 		}
         self.iconView.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
-            self.iconView.leadingAnchor.constraint(equalTo: self.contentView.leadingAnchor, constant: 1),
+            self.iconView.leadingAnchor.constraint(equalTo: self.contentView.leadingAnchor, constant: 0),
             self.iconView.centerYAnchor.constraint(equalTo: self.contentView.centerYAnchor),
-            self.iconView.heightAnchor.constraint(equalTo: self.contentView.heightAnchor, constant: -2),
+            self.iconView.heightAnchor.constraint(equalTo: self.contentView.heightAnchor),
             self.iconView.widthAnchor.constraint(equalTo: self.iconView.heightAnchor)
         ])
     }
