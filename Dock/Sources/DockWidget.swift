@@ -48,6 +48,10 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 	/// Frontmost tracking for the box + name reveal
 	private var frontmostIndex: Int?
 
+	/// Apps we minimized via tap-to-toggle, so restore works even when
+	/// "minimize into application icon" hides windows from the AX list.
+	private var minimizedAppIdentifiers: Set<String> = []
+
 	/// Current adjustable dock item height (icon grows via the adaptive constraints)
 	private var currentItemHeight: CGFloat {
 		get {
@@ -649,10 +653,6 @@ extension DockWidget: NSScrubberDelegate {
 
 	/// Minimize the frontmost window of the given app (yellow traffic-light).
 	/// Uses the Accessibility API, so Pock needs Accessibility permission.
-	/// Tracked minimized app bundle identifiers so the toggle survives the
-	/// "minimize into application icon" quirk where AX stops listing windows.
-	private var minimizedAppIdentifiers: Set<String> = []
-
 	private func minimizeApp(bundleIdentifier: String?) {
 		guard let bundleIdentifier = bundleIdentifier,
 			  let app = NSRunningApplication.runningApplications(withBundleIdentifier: bundleIdentifier).first else {
