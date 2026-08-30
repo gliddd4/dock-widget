@@ -37,8 +37,8 @@ class DockScrubberLayout: NSScrubberLayout {
 		return itemSize.width
 	}
 
-	override func prepareLayout() {
-		super.prepareLayout()
+	override func prepare() {
+		super.prepare()
 		let count = scrubber?.numberOfItems ?? 0
 		var frames: [NSRect] = []
 		var x: CGFloat = 0
@@ -64,11 +64,11 @@ class DockScrubberLayout: NSScrubberLayout {
 		return attributes
 	}
 
-	override func layoutAttributesForItems(in rect: NSRect) -> [NSScrubberLayoutAttributes] {
-		return cachedFrames.indices.compactMap { layoutAttributesForItem(at: $0) }
+	override func layoutAttributesForItems(in rect: NSRect) -> Set<NSScrubberLayoutAttributes> {
+		return Set(cachedFrames.indices.compactMap { layoutAttributesForItem(at: $0) })
 	}
 
-	override func shouldInvalidateLayout(forBoundsChange newBounds: NSRect) -> Bool {
+	override func shouldInvalidateLayout(forChangeFrom fromVisibleRect: NSRect, to toVisibleRect: NSRect) -> Bool {
 		return true
 	}
 
