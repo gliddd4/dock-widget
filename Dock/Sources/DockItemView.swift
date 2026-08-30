@@ -24,15 +24,19 @@ class DockItemView: NSScrubberItemView {
 	private private(set) var nameLabel:    NSTextField!
 	private var nameLabelWidthConstraint: NSLayoutConstraint?
 
-	/// Load icon view (fills the whole item height)
+	/// Load icon view (fills the whole item height, square, adaptive)
     private func loadIconView() {
         self.iconView = NSImageView(frame: .zero)
         self.iconView.imageScaling = .scaleProportionallyDown
         self.iconView.wantsLayer = true
         self.contentView.addSubview(self.iconView)
-		self.iconView.size(Constants.dockItemIconSize)
-		self.iconView.centerYToSuperview()
-		self.iconView.leftToSuperview(offset: 1)
+        self.iconView.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            self.iconView.leadingAnchor.constraint(equalTo: self.contentView.leadingAnchor, constant: 1),
+            self.iconView.centerYAnchor.constraint(equalTo: self.contentView.centerYAnchor),
+            self.iconView.heightAnchor.constraint(equalTo: self.contentView.heightAnchor, constant: -2),
+            self.iconView.widthAnchor.constraint(equalTo: self.iconView.heightAnchor)
+        ])
     }
 
     /// Load name label (only visible for the frontmost item)

@@ -99,6 +99,15 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 	
 	func viewDidAppear() {
 		initialize()
+		/// Make the scrubber fill the widget view's actual height so icons never clip
+		DispatchQueue.main.async { [weak self] in
+			guard let self = self else { return }
+			self.dockScrubber.frame.size.height = self.stackView.bounds.height
+			NSLog("[DockWidget] widget height: %.1f scrubber: %.1f itemSize: %.1f",
+				  self.stackView.bounds.height, self.dockScrubber.frame.height, Constants.dockItemSize.height)
+			self.dockScrubber.scrubberLayout = self.makeDockLayout()
+			self.dockScrubber.reloadData()
+		}
 	}
 	
 	func viewDidDisappear() {
