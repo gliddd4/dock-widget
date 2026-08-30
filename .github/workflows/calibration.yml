@@ -14,16 +14,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install CocoaPods + build PockKit
+      - name: Install CocoaPods + build PockKit framework
         run: |
           if ! command -v pod >/dev/null 2>&1; then
             sudo gem install cocoapods -N
           fi
           pod install --repo-update
-          xcodebuild -workspace Dock.xcworkspace \
-                     -scheme Dock \
+          xcodebuild -project Pods/Pods.xcodeproj \
+                     -target PockKit \
                      -configuration Release \
-                     -derivedDataPath build \
+                     -derivedDataPath buildPods \
                      CODE_SIGN_IDENTITY="-" \
                      CODE_SIGN_STYLE=Manual \
                      DEVELOPMENT_TEAM="" \
@@ -33,7 +33,7 @@ jobs:
       - name: Build Calibration.pock
         run: |
           set -o pipefail
-          POCKKIT=build/Build/Products/Release/Dock.pock/Contents/Frameworks/PockKit.framework
+          POCKKIT=buildPods/Build/Products/Release/PockKit.framework
           mkdir -p Calibration.pock/Contents/MacOS Calibration.pock/Contents/Frameworks
           swiftc -O -target x86_64-apple-macos13.0 \
             -module-name Calibration \
