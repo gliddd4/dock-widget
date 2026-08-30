@@ -19,21 +19,10 @@ class DockItemView: NSScrubberItemView {
 
     /// UI
     public private(set) var contentView:   NSView!
-    public private(set) var frontmostView: NSView!
     public private(set) var iconView:      NSImageView!
     public private(set) var badgeView:     NSView!
 	private private(set) var nameLabel:    NSTextField!
 	private var nameLabelWidthConstraint: NSLayoutConstraint?
-
-	/// Load frontmost (square box around the item)
-    private func loadFrontmost() {
-        self.frontmostView = NSView(frame: .zero)
-        self.frontmostView.wantsLayer = true
-        self.frontmostView.layer?.masksToBounds = true
-        self.frontmostView.layer?.cornerRadius = Constants.dockItemCornerRadius
-        self.contentView.addSubview(self.frontmostView, positioned: .below, relativeTo: self.iconView)
-		self.frontmostView.edgesToSuperview()
-    }
 
 	/// Load icon view (fills the whole item height)
     private func loadIconView() {
@@ -101,7 +90,6 @@ class DockItemView: NSScrubberItemView {
         layer?.contentsScale                = window?.backingScaleFactor ?? 1
         iconView?.layer?.contentsScale      = window?.backingScaleFactor ?? 1
         badgeView?.layer?.contentsScale     = window?.backingScaleFactor ?? 1
-        frontmostView?.layer?.contentsScale = window?.backingScaleFactor ?? 1
         nameLabel?.layer?.contentsScale     = window?.backingScaleFactor ?? 1
     }
 
@@ -137,17 +125,10 @@ class DockItemView: NSScrubberItemView {
     }
     public var hasBadge: Bool { return badgeView.layer?.opacity == 1 }
 
-	/// Frontmost: highlight + animated name reveal to the right of the icon
+	/// Frontmost: animated name reveal to the right of the icon (no square box)
 	public func set(isFrontmost: Bool) {
 		if nameLabel == nil { loadNameLabel() }
-		if frontmostView == nil { loadFrontmost() }
-		let box = frontmostView.layer!
-		box.removeAnimation(forKey: "boxTransition")
-		let transition = CATransition()
-		transition.type = .fade
-		transition.duration = 0.2
-		box.add(transition, forKey: "boxTransition")
-		box.backgroundColor = (isFrontmost ? NSColor.darkGray : NSColor.clear).cgColor
+		isFrontmostState = isFrontmost
 		revealName(isFrontmost)
 	}
 
@@ -168,7 +149,8 @@ class DockItemView: NSScrubberItemView {
 		nameLabelWidthConstraint?.constant = show ? nameWidth : 0
 	}
 
-	public var isFrontmost: Bool { return frontmostView.layer?.backgroundColor == NSColor.darkGray.cgColor }
+	public private(set) var isFrontmostState: Bool = false
+	public var isFrontmost: Bool { return isFrontmostState }
 
 	public func set(isMouseOver: Bool) {
 		guard isMouseOver else {

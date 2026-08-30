@@ -315,7 +315,7 @@ extension DockWidget: DockDelegate {
 						}
 					}else {
 						itemView.set(isRunning:   item.isRunning)
-						itemView.set(isFrontmost: item.isFrontmost)
+						itemView.set(isFrontmost: self.frontmostIndex.map { self.dockItems[$0].diffId } == item.diffId)
 						itemView.set(isLaunching: item.isLaunching)
 						self.dockScrubber.reloadItems(at: IndexSet(integer: currentIndex))
 					}
@@ -360,17 +360,11 @@ extension DockWidget: DockDelegate {
 				return
 			}
 			if activated {
-				let previous = self.frontmostIndex
-				self.frontmostIndex = index
-				if let previous = previous, previous != index, previous < self.dockItems.count {
-					self.itemView(for: self.dockItems[previous])?.set(isFrontmost: false)
-				}
-				self.itemView(for: item)?.set(isFrontmost: true)
+				self.applyFrontmost(index)
 			}else {
-				/// Deactivated: clear the box if this was the highlighted item
+				/// Deactivated: clear the highlight if this was the frontmost item
 				if self.frontmostIndex == index {
-					self.frontmostIndex = nil
-					self.itemView(for: item)?.set(isFrontmost: false)
+					self.applyFrontmost(nil)
 				}
 			}
 			self.dockScrubber.scrubberLayout = self.makeDockLayout()
@@ -436,8 +430,18 @@ extension DockWidget: DockDelegate {
 		view.set(name:        item.name)
 		view.set(hasBadge:    item.hasBadge)
 		view.set(isRunning:   item.isRunning)
-		view.set(isFrontmost: item.isFrontmost)
+		view.set(isFrontmost: frontmostIndex.map { dockItems[$0].diffId } == item.diffId)
 		return view
+	}
+
+	/// Single source of truth for the frontmost highlight: clears every other
+	/// item first so only one name is ever revealed at a time
+	private func applyFrontmost(_ index: Int?) {
+		frontmostIndex = index
+		(cachedDockItemViews + cachedPersistentItemViews).forEach { $0.set(isFrontmost: false) }
+		if let index = index, index < dockItems.count {
+			itemView(for: dockItems[index])?.set(isFrontmost: true)
+		}
 	}
 
 	/// Track the frontmost app once the initial items are loaded
@@ -445,9 +449,8 @@ extension DockWidget: DockDelegate {
 		guard frontmostIndex == nil, let index = dockItems.firstIndex(where: { $0.isFrontmost }) else {
 			return
 		}
-		frontmostIndex = index
+		applyFrontmost(index)
 		dockScrubber.scrubberLayout = makeDockLayout()
-		itemView(for: dockItems[index])?.set(isFrontmost: true)
 	}
 
 }
