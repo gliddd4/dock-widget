@@ -30,10 +30,9 @@ class DockItemView: NSScrubberItemView {
         self.iconView = NSImageView(frame: .zero)
         self.iconView.imageScaling = .scaleProportionallyDown
         self.iconView.wantsLayer = true
-        self.contentView.addSubview(self.iconView)	        /// Boost color saturation + brightness of app icons
+        self.contentView.addSubview(self.iconView)	        /// Boost color saturation of app icons
 	        if let filter = CIFilter(name: "CIColorControls") {
 	            filter.setValue(1.5, forKey: kCIInputSaturationKey)
-	            filter.setValue(0.10, forKey: kCIInputBrightnessKey)
 	            filter.setValue(1.05, forKey: kCIInputContrastKey)
 	            self.iconView.layer?.filters = [filter]
 	        }
@@ -49,7 +48,7 @@ class DockItemView: NSScrubberItemView {
     /// Load name label (only visible for the frontmost item)
 	private func loadNameLabel() {
 		self.nameLabel = NSTextField(labelWithString: "")
-		self.nameLabel.font = NSFont.systemFont(ofSize: Constants.nameFontSize, weight: .bold)
+		self.nameLabel.font = NSFont.systemFont(ofSize: Constants.nameFontSize, weight: .medium)
 		self.nameLabel.textColor = .white
 		self.nameLabel.lineBreakMode = .byTruncatingTail
 		self.nameLabel.usesSingleLineMode = true
@@ -119,10 +118,10 @@ class DockItemView: NSScrubberItemView {
 		let text = name ?? ""
 		nameLabel.attributedStringValue = NSAttributedString(string: text, attributes: [
 			.foregroundColor: NSColor.white,
-			.font: NSFont.systemFont(ofSize: Constants.nameFontSize, weight: .bold)
+			.font: NSFont.systemFont(ofSize: Constants.nameFontSize, weight: .medium)
 		])
 		let field = NSTextField(labelWithString: text)
-		field.font = NSFont.systemFont(ofSize: Constants.nameFontSize, weight: .bold)
+		field.font = NSFont.systemFont(ofSize: Constants.nameFontSize, weight: .medium)
 		let size = field.sizeThatFits(NSSize(width: Constants.nameMaxWidth, height: Constants.dockItemSize.height))
 		nameWidth = ceil(size.width)
 	}

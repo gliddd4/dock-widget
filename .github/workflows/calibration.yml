@@ -1,0 +1,74 @@
+name: Build Calibration widget
+
+on:
+  push:
+    branches: [main, custom-dock]
+    paths:
+      - 'calibration/**'
+      - '.github/workflows/calibration.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install CocoaPods + build PockKit
+        run: |
+          if ! command -v pod >/dev/null 2>&1; then
+            sudo gem install cocoapods -N
+          fi
+          pod install --repo-update
+          xcodebuild -workspace Dock.xcworkspace \
+                     -scheme Dock \
+                     -configuration Release \
+                     -derivedDataPath build \
+                     CODE_SIGN_IDENTITY="-" \
+                     CODE_SIGN_STYLE=Manual \
+                     DEVELOPMENT_TEAM="" \
+                     ARCHS=x86_64 ONLY_ACTIVE_ARCH=YES \
+                     build 2>&1 | tee /dev/null | tail -1
+
+      - name: Build Calibration.pock
+        run: |
+          set -o pipefail
+          POCKKIT=build/Build/Products/Release/Dock.pock/Contents/Frameworks/PockKit.framework
+          mkdir -p Calibration.pock/Contents/MacOS Calibration.pock/Contents/Frameworks
+          swiftc -O -target x86_64-apple-macos13.0 \
+            -module-name Calibration \
+            calibration/CalibrationWidget.swift \
+            -F "$(dirname "$POCKKIT")" \
+            -framework AppKit -framework PockKit \
+            -Xlinker -rpath -Xlinker @executable_path/../Frameworks \
+            -o Calibration.pock/Contents/MacOS/Calibration
+          cp -R "$POCKKIT" Calibration.pock/Contents/Frameworks/
+          cat > Calibration.pock/Contents/Info.plist <<'PLIST'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>CFBundleDevelopmentRegion</key><string>en</string>
+            <key>CFBundleExecutable</key><string>Calibration</string>
+            <key>CFBundleIdentifier</key><string>com.gliddd4.pock.calibration</string>
+            <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
+            <key>CFBundleName</key><string>Calibration</string>
+            <key>CFBundlePackageType</key><string>BNDL</string>
+            <key>CFBundleShortVersionString</key><string>0.1.0</string>
+            <key>CFBundleVersion</key><string>1</string>
+            <key>LSMinimumSystemVersion</key><string>13.0</string>
+            <key>NSPrincipalClass</key><string>Calibration.CalibrationWidget</string>
+            <key>PKWidgetAuthor</key><string>gliddd4</string>
+          </dict>
+          </plist>
+          PLIST
+          codesign --force --deep --sign - Calibration.pock
+          zip -qry Calibration.pock.zip Calibration.pock
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Calibration.pock
+          path: |
+            Calibration.pock.zip
+          if-no-files-found: ignore
