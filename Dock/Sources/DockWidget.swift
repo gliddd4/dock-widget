@@ -595,9 +595,14 @@ extension DockWidget: NSScrubberDelegate {
 		/// Tapping a running app toggles it: if a frontmost window is showing,
 		/// minimize it (yellow traffic-light); if its window is minimized,
 		/// restore it. Otherwise just bring it forward normally.
-		let isFrontmost = frontmostIndex.map { index in
+		/// Prefer the real frontmost app over the tracked index so the toggle
+		/// stays correct even when index tracking drifts (reorders/removals).
+		let indexIsFrontmost = frontmostIndex.map { index in
 			index < dockItems.count ? dockItems[index].diffId == item.diffId : false
 		} ?? false
+		let appIsFrontmost = item.bundleIdentifier != nil &&
+			NSWorkspace.shared.frontmostApplication?.bundleIdentifier == item.bundleIdentifier
+		let isFrontmost = indexIsFrontmost || appIsFrontmost
 		if item.isRunning, !item.isPersistentItem, item.bundleIdentifier != Constants.kLaunchpadIdentifier,
 		   let app = NSRunningApplication.runningApplications(withBundleIdentifier: item.bundleIdentifier ?? "").first {
 			/// We remember which apps we minimized, because reading the AX minimized

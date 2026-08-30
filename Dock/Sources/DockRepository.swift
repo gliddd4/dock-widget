@@ -504,18 +504,11 @@ extension DockRepository {
 	@discardableResult
 	private func activate(app: NSRunningApplication?) -> Bool {
 		guard let app = app else { return false }
-		let _windows = PockDockHelper().getWindowsOfApp(app.processIdentifier) as NSArray?
-		
-		if let windows = _windows as? [AppExposeItem], activateExpose(with: windows, app: app) {
-			return true
-		}else {
-			if !app.unhide() {
-				if !NSWorkspace.shared.launchApplication(withBundleIdentifier: app.bundleIdentifier!, options: .default, additionalEventParamDescriptor: nil, launchIdentifier: nil) {
-					return app.activate(options: .activateIgnoringOtherApps)
-				}
-			}
-			return true
-		}
+		/// Bring the app forward directly. The stock Pock path opened the App
+		/// Expose overlay whenever the app had more than one window, which made
+		/// activation look like a no-op (or flaky) depending on window count.
+		app.unhide()
+		return app.activate(options: [.activateAllWindows, .activateIgnoringOtherApps])
 	}
 	
 	private func activateExpose(with windows: [AppExposeItem], app: NSRunningApplication) -> Bool {
