@@ -159,7 +159,6 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 		dockScrubber.scrubberLayout = makeDockLayout()
 		dockScrubber.reloadData()
 	}
-}
 	
 	func viewDidAppear() {
 		initialize()
