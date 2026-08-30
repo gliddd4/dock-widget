@@ -18,7 +18,7 @@ jobs:
         run: |
           set -o pipefail
           mkdir -p build/CornerDock.app/Contents/MacOS
-          swiftc -O \
+          swiftc -O -target x86_64-apple-macos13.0 \
             corner-dock/Sources/CornerDock/*.swift \
             -o build/CornerDock.app/Contents/MacOS/CornerDock \
             -framework AppKit \
