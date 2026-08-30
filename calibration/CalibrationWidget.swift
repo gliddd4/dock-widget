@@ -5,8 +5,8 @@
 //  Draws a 1px white/red grid across the widget so you can measure the
 //  real visible height of the Touch Bar. The widget view is fixed at
 //  30pt by Pock, but the grid can be drawn taller ("virtual height")
-//  with Option+Left/Right; rows above the visible edge are clipped,
-//  showing exactly where the bar ends. Option+Up/Down moves the grid
+//  with Command+Left/Right; rows above the visible edge are clipped,
+//  showing exactly where the bar ends. Command+Up/Down moves the grid
 //  vertically so you can align it with either edge.
 //
 
@@ -105,7 +105,7 @@ final class CalibrationWidget: NSObject, PKWidget {
 
     func viewDidDisappear() { }
 
-    // MARK: Hotkeys - Option+Up/Down = move grid, Option+Left/Right = height
+    // MARK: Hotkeys - Command+Up/Down = move grid, Command+Left/Right = height
 
     private static func installHandler() {
         guard !handlerInstalled else { return }
@@ -142,7 +142,7 @@ final class CalibrationWidget: NSObject, PKWidget {
         for (keyCode, id) in keys {
             var ref: EventHotKeyRef?
             let hotKeyID = EventHotKeyID(signature: signature, id: UInt32(id))
-            let reg = RegisterEventHotKey(keyCode, UInt32(optionKey), hotKeyID, GetApplicationEventTarget(), 0, &ref)
+            let reg = RegisterEventHotKey(keyCode, UInt32(cmdKey), hotKeyID, GetApplicationEventTarget(), 0, &ref)
             if reg != noErr {
                 NSLog("[Calibration]: Failed to register key \(id): \(reg)")
             }
@@ -153,10 +153,10 @@ final class CalibrationWidget: NSObject, PKWidget {
     private func handleKey(_ id: Int) {
         NSLog("[Calibration]: key \(id) received (H:\(gridView.virtualHeight) O:\(gridView.offset)) current=self:\(CalibrationWidget.current === self)")
         switch id {
-        case 1: gridView.offset += 1          // Option+Up: move grid up
-        case 2: gridView.offset -= 1          // Option+Down: move grid down
-        case 3: gridView.virtualHeight -= 1   // Option+Left: shorter grid
-        case 4: gridView.virtualHeight += 1   // Option+Right: taller grid
+        case 1: gridView.offset += 1          // Command+Up: move grid up
+        case 2: gridView.offset -= 1          // Command+Down: move grid down
+        case 3: gridView.virtualHeight -= 1   // Command+Left: shorter grid
+        case 4: gridView.virtualHeight += 1   // Command+Right: taller grid
         default: return
         }
         gridView.virtualHeight = Swift.min(Swift.max(gridView.virtualHeight, 10), 100)
