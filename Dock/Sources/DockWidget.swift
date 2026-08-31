@@ -17,6 +17,11 @@ private final class CheatSheetRowView: NSView {
 	var highlighted: Bool = false {
 		didSet { needsDisplay = true }
 	}
+	init(highlighted: Bool) {
+		super.init(frame: .zero)
+		self.highlighted = highlighted
+		wantsLayer = true
+	}
 	override init(frame: NSRect) {
 		super.init(frame: frame)
 		wantsLayer = true
