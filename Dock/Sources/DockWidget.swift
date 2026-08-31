@@ -17,6 +17,9 @@ private final class CheatSheetRowView: NSView {
 	var highlighted: Bool = false {
 		didSet { needsDisplay = true }
 	}
+	/// Horizontal inset of the highlight capsule so it pads the number on
+	/// the right exactly as much as it pads the app icon on the left.
+	var pillInsetX: CGFloat = 8
 	init(highlighted: Bool) {
 		super.init(frame: .zero)
 		self.highlighted = highlighted
@@ -33,7 +36,8 @@ private final class CheatSheetRowView: NSView {
 	override func draw(_ dirtyRect: NSRect) {
 		super.draw(dirtyRect)
 		guard highlighted else { return }
-		let path = NSBezierPath(roundedRect: bounds, xRadius: 9, yRadius: 9)
+		let inset = bounds.insetBy(dx: pillInsetX, dy: 2)
+		let path = NSBezierPath(roundedRect: inset, xRadius: 10, yRadius: 10)
 		NSColor.white.withAlphaComponent(0.14).setFill()
 		path.fill()
 	}
@@ -344,9 +348,10 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 		let activeBundleId = NSWorkspace.shared.frontmostApplication?.bundleIdentifier
 
 		/// Tailored to look like a native menu / search panel, not a developer HUD.
-		let rowHeight:  CGFloat = 40
+		let rowHeight:  CGFloat = 44
 		let hPad:       CGFloat = 18
-		let iconSize:   CGFloat = 26
+		let rowInset:   CGFloat = 8   // Apple list-row leading/trailing padding
+		let iconSize:   CGFloat = 32  // match the icon size on the Touch Bar dock
 		let gap:        CGFloat = 14
 		let keyCol:     CGFloat = 30
 		let nameFont = NSFont.systemFont(ofSize: 15, weight: .regular)
@@ -405,6 +410,7 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 			let isRunning = item.isRunning
 
 			let row = CheatSheetRowView(highlighted: isActive)
+			row.pillInsetX = rowInset
 			row.translatesAutoresizingMaskIntoConstraints = false
 			row.heightAnchor.constraint(equalToConstant: rowHeight).isActive = true
 			row.widthAnchor.constraint(equalToConstant: rowWidth).isActive = true
@@ -418,8 +424,8 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 			NSLayoutConstraint.activate([
 				inner.topAnchor.constraint(equalTo: row.topAnchor),
 				inner.bottomAnchor.constraint(equalTo: row.bottomAnchor),
-				inner.leadingAnchor.constraint(equalTo: row.leadingAnchor, constant: 4),
-				inner.trailingAnchor.constraint(equalTo: row.trailingAnchor, constant: -4)
+				inner.leadingAnchor.constraint(equalTo: row.leadingAnchor, constant: rowInset),
+				inner.trailingAnchor.constraint(equalTo: row.trailingAnchor, constant: -rowInset)
 			])
 
 			let iconView = NSImageView()
