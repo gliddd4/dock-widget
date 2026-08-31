@@ -321,7 +321,7 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 			maxNameWidth = max(maxNameWidth, w)
 		}
 		let nameCap: CGFloat = 200
-		let leadingNumCol: CGFloat = 22
+		let leadingNumCol: CGFloat = 14
 		let contentWidth = 16 + leadingNumCol + 10 + 26 + 10 + min(maxNameWidth, nameCap) + 16
 
 		let panel = NSPanel(contentRect: NSRect(x: 0, y: 0, width: contentWidth, height: 300),
@@ -370,11 +370,13 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 			let isActive = item.bundleIdentifier == activeBundleId
 			let isRunning = item.isRunning
 
+			/// Tabular digits keep every number the same advance width so the
+			/// column lines up flush and the gap to the icon is perfectly even.
 			let numberLabel = NSTextField(labelWithString: index < 9 ? "\(index + 1)" : " ")
-			numberLabel.font = NSFont.systemFont(ofSize: 15, weight: .semibold)
+			numberLabel.font = NSFont.monospacedDigitSystemFont(ofSize: 15, weight: .semibold)
 			numberLabel.textColor = .white
 			numberLabel.alphaValue = isActive ? 1.0 : 0.4
-			numberLabel.widthAnchor.constraint(equalToConstant: 22).isActive = true
+			numberLabel.widthAnchor.constraint(equalToConstant: 14).isActive = true
 
 			let iconView = NSImageView()
 			iconView.image = item.icon
