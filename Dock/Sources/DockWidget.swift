@@ -11,6 +11,29 @@ import PockKit
 import TinyConstraints
 import ApplicationServices
 
+/// A single cheat-sheet row. Draws a native-style selection pill behind
+/// the frontmost app's row (matches the highlight Apple uses in menus).
+private final class CheatSheetRowView: NSView {
+	var highlighted: Bool = false {
+		didSet { needsDisplay = true }
+	}
+	override init(frame: NSRect) {
+		super.init(frame: frame)
+		wantsLayer = true
+	}
+	required init?(coder: NSCoder) {
+		super.init(coder: coder)
+		wantsLayer = true
+	}
+	override func draw(_ dirtyRect: NSRect) {
+		super.draw(dirtyRect)
+		guard highlighted else { return }
+		let path = NSBezierPath(roundedRect: bounds, xRadius: 9, yRadius: 9)
+		NSColor.white.withAlphaComponent(0.14).setFill()
+		path.fill()
+	}
+}
+
 class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 	
 	static var identifier: String = "DockWidget"
@@ -313,18 +336,26 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 	private func showOptionPanel() {
 		guard optionPanel == nil, !dockItems.isEmpty else { return }
 
-		/// Size the panel to hug its widest row instead of leaving dead space on the right.
-		let nameFont = NSFont.systemFont(ofSize: 14, weight: .regular)
+		let activeBundleId = NSWorkspace.shared.frontmostApplication?.bundleIdentifier
+
+		/// Tailored to look like a native menu / search panel, not a developer HUD.
+		let rowHeight:  CGFloat = 40
+		let hPad:       CGFloat = 18
+		let iconSize:   CGFloat = 26
+		let gap:        CGFloat = 14
+		let keyCol:     CGFloat = 30
+		let nameFont = NSFont.systemFont(ofSize: 15, weight: .regular)
+
+		/// Measure the widest name so the panel hugs its content (capped).
 		var maxNameWidth: CGFloat = 0
 		for item in dockItems {
 			let w = (item.name as NSString?)?.size(withAttributes: [.font: nameFont]).width ?? 0
 			maxNameWidth = max(maxNameWidth, w)
 		}
 		let nameCap: CGFloat = 200
-		let leadingNumCol: CGFloat = 14
-		let contentWidth = 16 + leadingNumCol + 10 + 26 + 10 + min(maxNameWidth, nameCap) + 16
+		let contentWidth = hPad + iconSize + gap + min(maxNameWidth, nameCap) + gap + keyCol + hPad
 
-		let panel = NSPanel(contentRect: NSRect(x: 0, y: 0, width: contentWidth, height: 300),
+		let panel = NSPanel(contentRect: NSRect(x: 0, y: 0, width: contentWidth, height: 200),
 							styleMask: [.borderless, .nonactivatingPanel],
 							backing: .buffered, defer: false)
 		panel.level = .floating
@@ -335,72 +366,107 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 		panel.isReleasedWhenClosed = false
 		panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
 
-		/// Blurred dark background, Spotlight-style
-		let effect = NSVisualEffectView(frame: NSRect(x: 0, y: 0, width: contentWidth, height: 300))
-		effect.material = .hudWindow
+		/// Light native popover/search material with a hairline border and large radius.
+		let effect = NSVisualEffectView(frame: NSRect(x: 0, y: 0, width: contentWidth, height: 200))
+		effect.material = .popover
 		effect.state = .active
 		effect.blendingMode = .behindWindow
 		effect.wantsLayer = true
-		effect.layer?.cornerRadius = 14
+		effect.layer?.cornerRadius = 18
 		effect.layer?.masksToBounds = true
+		effect.layer?.borderWidth = 0.5
+		effect.layer?.borderColor = NSColor.black.withAlphaComponent(0.12).cgColor
 		panel.contentView = effect
 
-		/// Rows: hotkey number, icon, name — same order as the Touch Bar dock
+		/// One full-width row per app (same order as the Touch Bar dock).
 		let stack = NSStackView()
 		stack.orientation = .vertical
 		stack.alignment = .leading
-		stack.spacing = 4
-		stack.edgeInsets = NSEdgeInsets(top: 14, left: 16, bottom: 14, right: 16)
+		stack.spacing = 0
+		stack.edgeInsets = NSEdgeInsets(top: 8, left: 0, bottom: 8, right: 0)
 		stack.translatesAutoresizingMaskIntoConstraints = false
 		effect.addSubview(stack)
 		NSLayoutConstraint.activate([
 			stack.topAnchor.constraint(equalTo: effect.topAnchor),
-			stack.leadingAnchor.constraint(equalTo: effect.leadingAnchor),
-			stack.trailingAnchor.constraint(equalTo: effect.trailingAnchor),
+			stack.leadingAnchor.constraint(equalTo: effect.leadingAnchor, constant: hPad - 2),
+			stack.trailingAnchor.constraint(equalTo: effect.trailingAnchor, constant: -(hPad - 2)),
 			stack.bottomAnchor.constraint(equalTo: effect.bottomAnchor)
 		])
 
-		let activeBundleId = NSWorkspace.shared.frontmostApplication?.bundleIdentifier
 		for (index, item) in dockItems.enumerated() {
-			let row = NSStackView()
-			row.orientation = .horizontal
-			row.alignment = .centerY
-			row.spacing = 10
-
 			let isActive = item.bundleIdentifier == activeBundleId
 			let isRunning = item.isRunning
 
-			/// Tabular digits keep every number the same advance width so the
-			/// column lines up flush and the gap to the icon is perfectly even.
-			let numberLabel = NSTextField(labelWithString: index < 9 ? "\(index + 1)" : " ")
-			numberLabel.font = NSFont.monospacedDigitSystemFont(ofSize: 15, weight: .semibold)
-			numberLabel.textColor = .white
-			numberLabel.alphaValue = isActive ? 1.0 : 0.4
-			numberLabel.widthAnchor.constraint(equalToConstant: 14).isActive = true
+			let row = CheatSheetRowView(highlighted: isActive)
+			row.translatesAutoresizingMaskIntoConstraints = false
+			row.heightAnchor.constraint(equalToConstant: rowHeight).isActive = true
+			row.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
+
+			let inner = NSStackView()
+			inner.orientation = .horizontal
+			inner.alignment = .centerY
+			inner.spacing = 0
+			inner.translatesAutoresizingMaskIntoConstraints = false
+			row.addSubview(inner)
+			NSLayoutConstraint.activate([
+				inner.topAnchor.constraint(equalTo: row.topAnchor),
+				inner.bottomAnchor.constraint(equalTo: row.bottomAnchor),
+				inner.leadingAnchor.constraint(equalTo: row.leadingAnchor, constant: 4),
+				inner.trailingAnchor.constraint(equalTo: row.trailingAnchor, constant: -4)
+			])
 
 			let iconView = NSImageView()
 			iconView.image = item.icon
 			iconView.imageScaling = .scaleProportionallyUpOrDown
-			iconView.alphaValue = isRunning ? 1.0 : 0.5
-			iconView.widthAnchor.constraint(equalToConstant: 26).isActive = true
-			iconView.heightAnchor.constraint(equalToConstant: 26).isActive = true
+			iconView.alphaValue = isRunning ? 1.0 : 0.45
+			iconView.widthAnchor.constraint(equalToConstant: iconSize).isActive = true
+			iconView.heightAnchor.constraint(equalToConstant: iconSize).isActive = true
 
 			let nameLabel = NSTextField(labelWithString: item.name ?? "")
 			nameLabel.font = nameFont
-			nameLabel.textColor = .white
-			nameLabel.alphaValue = isRunning ? 1.0 : 0.55
+			nameLabel.textColor = .labelColor
+			nameLabel.alphaValue = isRunning ? 1.0 : 0.45
 			nameLabel.lineBreakMode = .byTruncatingTail
 
-			row.addArrangedSubview(numberLabel)
-			row.addArrangedSubview(iconView)
-			row.addArrangedSubview(nameLabel)
+			/// Trailing key equivalent (like ⌘P in a menu): tabular digits,
+			/// right-aligned, bright only for the frontmost app.
+			let keyLabel = NSTextField(labelWithString: index < 9 ? "\(index + 1)" : " ")
+			keyLabel.font = NSFont.monospacedDigitSystemFont(ofSize: 15, weight: .semibold)
+			keyLabel.textColor = isActive ? .labelColor : .secondaryLabelColor
+			keyLabel.alphaValue = isRunning ? 1.0 : (isActive ? 1.0 : 0.6)
+			keyLabel.alignment = .right
+
+			inner.addArrangedSubview(iconView)
+			let iconGap = NSView(); iconGap.translatesAutoresizingMaskIntoConstraints = false
+			iconGap.widthAnchor.constraint(equalToConstant: gap).isActive = true
+			inner.addArrangedSubview(iconGap)
+			inner.addArrangedSubview(nameLabel)
+
+			let spacer = NSView()
+			spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
+			inner.addArrangedSubview(spacer)
+
+			let keyGap = NSView(); keyGap.translatesAutoresizingMaskIntoConstraints = false
+			keyGap.widthAnchor.constraint(equalToConstant: gap).isActive = true
+			inner.addArrangedSubview(keyGap)
+
+			let keyWrap = NSView()
+			keyWrap.translatesAutoresizingMaskIntoConstraints = false
+			keyWrap.widthAnchor.constraint(equalToConstant: keyCol).isActive = true
+			keyLabel.translatesAutoresizingMaskIntoConstraints = false
+			keyWrap.addSubview(keyLabel)
+			NSLayoutConstraint.activate([
+				keyLabel.centerYAnchor.constraint(equalTo: keyWrap.centerYAnchor),
+				keyLabel.trailingAnchor.constraint(equalTo: keyWrap.trailingAnchor)
+			])
+			inner.addArrangedSubview(keyWrap)
+
 			stack.addArrangedSubview(row)
 		}
 
-		/// Size the panel to fit its rows (capped so it never covers the screen)
-		let rowHeight: CGFloat = 30
-		let height = min(CGFloat(dockItems.count) * rowHeight + 28, 480)
-		panel.setContentSize(NSSize(width: contentWidth, height: max(height, 90)))
+		/// Size the panel to fit its rows (capped so it never covers the screen).
+		let height = min(CGFloat(dockItems.count) * rowHeight + 16, 480)
+		panel.setContentSize(NSSize(width: contentWidth, height: max(height, rowHeight + 16)))
 		panel.center()
 		optionPanel = panel
 		panel.orderFrontRegardless()
