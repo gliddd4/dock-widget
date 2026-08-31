@@ -427,14 +427,13 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 			let nameLabel = NSTextField(labelWithString: item.name ?? "")
 			nameLabel.font = font
 			nameLabel.textColor = textColor
-			nameLabel.alphaValue = isRunning ? 1.0 : 0.45
 			nameLabel.lineBreakMode = .byTruncatingTail
 
 			/// Trailing hotkey number in the same Menlo 18 as Snap's row text.
+			/// Only the app icon is dimmed for closed apps; name and number stay full.
 			let keyLabel = NSTextField(labelWithString: index < 9 ? "\(index + 1)" : " ")
 			keyLabel.font = font
 			keyLabel.textColor = textColor
-			keyLabel.alphaValue = isRunning ? 1.0 : (isActive ? 1.0 : 0.6)
 			keyLabel.alignment = .right
 
 			inner.addArrangedSubview(iconView)
