@@ -656,7 +656,8 @@ extension DockWidget: NSScrubberDelegate {
 		/// it includes windows minimized into the application icon, which are
 		/// absent from the regular AX windows list.
 		var minimizedRef: CFTypeRef?
-		if AXUIElementCopyAttributeValue(appElement, kAXMinimizedWindowsAttribute as CFString, &minimizedRef) == .success,
+		/// "AXMinimizedWindows" isn't exposed as a Swift constant, so use the literal.
+		if AXUIElementCopyAttributeValue(appElement, "AXMinimizedWindows" as CFString, &minimizedRef) == .success,
 		   let minimizedWindows = minimizedRef as? [AXUIElement] {
 			for window in minimizedWindows {
 				AXUIElementSetAttributeValue(window, kAXMinimizedAttribute as CFString, kCFBooleanFalse as CFTypeRef)
