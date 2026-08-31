@@ -348,26 +348,33 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 			stack.bottomAnchor.constraint(equalTo: effect.bottomAnchor)
 		])
 
+		let activeBundleId = NSWorkspace.shared.frontmostApplication?.bundleIdentifier
 		for (index, item) in dockItems.enumerated() {
 			let row = NSStackView()
 			row.orientation = .horizontal
 			row.alignment = .centerY
 			row.spacing = 10
 
+			let isActive = item.bundleIdentifier == activeBundleId
+			let isRunning = item.isRunning
+
 			let numberLabel = NSTextField(labelWithString: index < 9 ? "\(index + 1)" : " ")
-			numberLabel.font = NSFont.monospacedDigitSystemFont(ofSize: 15, weight: .semibold)
-			numberLabel.textColor = index < 9 ? NSColor.systemYellow : NSColor.secondaryLabelColor
+			numberLabel.font = NSFont.systemFont(ofSize: 15, weight: .semibold)
+			numberLabel.textColor = .white
+			numberLabel.alphaValue = isActive ? 1.0 : 0.4
 			numberLabel.widthAnchor.constraint(equalToConstant: 22).isActive = true
 
 			let iconView = NSImageView()
 			iconView.image = item.icon
 			iconView.imageScaling = .scaleProportionallyUpOrDown
+			iconView.alphaValue = isRunning ? 1.0 : 0.5
 			iconView.widthAnchor.constraint(equalToConstant: 26).isActive = true
 			iconView.heightAnchor.constraint(equalToConstant: 26).isActive = true
 
 			let nameLabel = NSTextField(labelWithString: item.name ?? "")
 			nameLabel.font = NSFont.systemFont(ofSize: 14, weight: .regular)
 			nameLabel.textColor = .white
+			nameLabel.alphaValue = isRunning ? 1.0 : 0.55
 			nameLabel.lineBreakMode = .byTruncatingTail
 
 			row.addArrangedSubview(numberLabel)
