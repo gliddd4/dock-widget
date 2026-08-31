@@ -13,8 +13,8 @@ import ApplicationServices
 
 /// A single cheat-sheet row. Draws a native-style selection pill behind
 /// the frontmost app's row (matches the highlight Apple uses in menus).
-/// Mirror of the open-source Snap launcher's result row: a flat, full-width
-/// solid highlight (#FF79C6) behind the selected app, exactly as Snap draws it.
+/// Raycast-style selected row: a soft white rounded pill behind the
+/// frontmost app (adapts to light/dark), like Raycast's result highlight.
 private final class CheatSheetRowView: NSView {
 	var highlighted: Bool = false {
 		didSet { needsDisplay = true }
@@ -35,9 +35,12 @@ private final class CheatSheetRowView: NSView {
 	override func draw(_ dirtyRect: NSRect) {
 		super.draw(dirtyRect)
 		guard highlighted else { return }
-		let c = NSColor(calibratedRed: 0xFF / 255.0, green: 0x79 / 255.0, blue: 0xC6 / 255.0, alpha: 1)
-		c.setFill()
-		bounds.fill()
+		let dark = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+		let fill: NSColor = dark ? NSColor.white.withAlphaComponent(0.16) : NSColor.white.withAlphaComponent(0.85)
+		let inset = bounds.insetBy(dx: 4, dy: 3)
+		let path = NSBezierPath(roundedRect: inset, xRadius: 8, yRadius: 8)
+		fill.setFill()
+		path.fill()
 	}
 }
 
@@ -345,18 +348,18 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 
 		let activeBundleId = NSWorkspace.shared.frontmostApplication?.bundleIdentifier
 
-		// Exact palette + metrics from the open-source Snap launcher:
-		// background #282A36, text #F8F8F2, highlight #FF79C6, Menlo 18,
-		// 70pt rows, 50pt icons, flat rectangle window (no rounding/shadow).
-		let bgColor   = NSColor(calibratedRed: 0x28 / 255.0, green: 0x2A / 255.0, blue: 0x36 / 255.0, alpha: 1)
-		let textColor = NSColor(calibratedRed: 0xF8 / 255.0, green: 0xF8 / 255.0, blue: 0xF2 / 255.0, alpha: 1)
-		let font = NSFont(name: "Menlo", size: 18) ?? NSFont.systemFont(ofSize: 18)
-
-		let rowHeight:  CGFloat = 70   // Snap resultItemHeight
-		let iconSize:   CGFloat = 50   // Snap iconSizeWidth/Height
-		let rowInset:   CGFloat = 12   // Snap row .padding() (leading/trailing)
-		let gap:        CGFloat = 14
-		let keyCol:     CGFloat = 40
+		// Raycast-style popover: frosted-glass panel, search bar on top, and
+		// result rows with a soft white selection pill. raycast/macos is closed
+		// source now, so these values replicate Raycast's published look.
+		let rowHeight:    CGFloat = 52
+		let searchBarH:   CGFloat = 44
+		let iconSize:     CGFloat = 28
+		let rowInset:     CGFloat = 12
+		let gap:          CGFloat = 12
+		let keyCol:       CGFloat = 34
+		let cornerRadius: CGFloat = 18
+		let font = NSFont.systemFont(ofSize: 14)
+		let keyFont = NSFont.monospacedDigitSystemFont(ofSize: 14, weight: .regular)
 
 		/// Measure the widest name so the panel hugs its content (capped).
 		var maxNameWidth: CGFloat = 0
@@ -365,36 +368,77 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 			maxNameWidth = max(maxNameWidth, w)
 		}
 		let nameCap: CGFloat = 200
-		let contentWidth = rowInset + iconSize + gap + min(maxNameWidth, nameCap) + gap + keyCol + rowInset
+		let contentWidth = 14 + iconSize + gap + min(maxNameWidth, nameCap) + gap + keyCol + 14
 
-		let panel = NSPanel(contentRect: NSRect(x: 0, y: 0, width: contentWidth, height: 200),
+		let panel = NSPanel(contentRect: NSRect(x: 0, y: 0, width: contentWidth, height: 300),
 							styleMask: [.borderless, .nonactivatingPanel],
 							backing: .buffered, defer: false)
 		panel.level = .floating
-		panel.isOpaque = true
-		panel.backgroundColor = bgColor
-		panel.hasShadow = false
+		panel.isOpaque = false
+		panel.backgroundColor = .clear
+		panel.hasShadow = true
 		panel.hidesOnDeactivate = false
 		panel.isReleasedWhenClosed = false
 		panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
 
-		let container = NSView(frame: NSRect(x: 0, y: 0, width: contentWidth, height: 200))
-		panel.contentView = container
+		/// Frosted-glass panel that adapts to light/dark, like Raycast's window.
+		let effect = NSVisualEffectView(frame: NSRect(x: 0, y: 0, width: contentWidth, height: 300))
+		effect.material = .popover
+		effect.state = .active
+		effect.blendingMode = .behindWindow
+		effect.wantsLayer = true
+		effect.layer?.cornerRadius = cornerRadius
+		effect.layer?.masksToBounds = true
+		effect.layer?.borderWidth = 0.5
+		effect.layer?.borderColor = NSColor.black.withAlphaComponent(0.1).cgColor
+		panel.contentView = effect
 
-		/// One full-width row per app (same order as the Touch Bar dock).
 		let stack = NSStackView()
 		stack.orientation = .vertical
 		stack.alignment = .leading
 		stack.spacing = 0
+		stack.edgeInsets = NSEdgeInsets(top: 6, left: 0, bottom: 6, right: 0)
 		stack.translatesAutoresizingMaskIntoConstraints = false
-		container.addSubview(stack)
+		effect.addSubview(stack)
 		NSLayoutConstraint.activate([
-			stack.topAnchor.constraint(equalTo: container.topAnchor),
-			stack.leadingAnchor.constraint(equalTo: container.leadingAnchor),
-			stack.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-			stack.bottomAnchor.constraint(equalTo: container.bottomAnchor)
+			stack.topAnchor.constraint(equalTo: effect.topAnchor),
+			stack.leadingAnchor.constraint(equalTo: effect.leadingAnchor),
+			stack.trailingAnchor.constraint(equalTo: effect.trailingAnchor),
+			stack.bottomAnchor.constraint(equalTo: effect.bottomAnchor)
 		])
 
+		/// Search bar at the top of the window, exactly where Raycast puts it.
+		let searchBar = NSView()
+		searchBar.translatesAutoresizingMaskIntoConstraints = false
+		searchBar.heightAnchor.constraint(equalToConstant: searchBarH).isActive = true
+		searchBar.widthAnchor.constraint(equalToConstant: contentWidth).isActive = true
+
+		let searchInner = NSStackView()
+		searchInner.orientation = .horizontal
+		searchInner.alignment = .centerY
+		searchInner.spacing = 8
+		searchInner.translatesAutoresizingMaskIntoConstraints = false
+		searchBar.addSubview(searchInner)
+		NSLayoutConstraint.activate([
+			searchInner.centerYAnchor.constraint(equalTo: searchBar.centerYAnchor),
+			searchInner.leadingAnchor.constraint(equalTo: searchBar.leadingAnchor, constant: 14),
+			searchInner.trailingAnchor.constraint(lessThanOrEqualTo: searchBar.trailingAnchor, constant: -14)
+		])
+
+		let mag = NSImageView()
+		mag.image = NSImage(systemSymbolName: "magnifyingglass", accessibilityDescription: nil)
+		mag.contentTintColor = .secondaryLabelColor
+		mag.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 15, weight: .regular)
+		searchInner.addArrangedSubview(mag)
+
+		let searchPlaceholder = NSTextField(labelWithString: "Search apps")
+		searchPlaceholder.font = font
+		searchPlaceholder.textColor = .secondaryLabelColor
+		searchInner.addArrangedSubview(searchPlaceholder)
+
+		stack.addArrangedSubview(searchBar)
+
+		/// Result rows, one per app (same order as the Touch Bar dock).
 		for (index, item) in dockItems.enumerated() {
 			let isActive = item.bundleIdentifier == activeBundleId
 			let isRunning = item.isRunning
@@ -420,20 +464,19 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 			let iconView = NSImageView()
 			iconView.image = item.icon
 			iconView.imageScaling = .scaleProportionallyUpOrDown
-			iconView.alphaValue = isRunning ? 1.0 : 0.45
+			iconView.alphaValue = isRunning ? 1.0 : 0.45   // only the icon dims for closed apps
 			iconView.widthAnchor.constraint(equalToConstant: iconSize).isActive = true
 			iconView.heightAnchor.constraint(equalToConstant: iconSize).isActive = true
 
 			let nameLabel = NSTextField(labelWithString: item.name ?? "")
 			nameLabel.font = font
-			nameLabel.textColor = textColor
+			nameLabel.textColor = .labelColor
 			nameLabel.lineBreakMode = .byTruncatingTail
 
-			/// Trailing hotkey number in the same Menlo 18 as Snap's row text.
-			/// Only the app icon is dimmed for closed apps; name and number stay full.
+			/// Trailing hotkey number, tabular digits, same native styling.
 			let keyLabel = NSTextField(labelWithString: index < 9 ? "\(index + 1)" : " ")
-			keyLabel.font = font
-			keyLabel.textColor = textColor
+			keyLabel.font = keyFont
+			keyLabel.textColor = .labelColor
 			keyLabel.alignment = .right
 
 			inner.addArrangedSubview(iconView)
@@ -464,9 +507,10 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 			stack.addArrangedSubview(row)
 		}
 
-		/// Size the panel to fit its rows (capped so it never covers the screen).
-		let height = min(CGFloat(dockItems.count) * rowHeight, 600)
-		panel.setContentSize(NSSize(width: contentWidth, height: max(height, rowHeight)))
+		/// Size the panel to fit search bar + rows (capped so it never covers the screen).
+		let rowsHeight = min(CGFloat(dockItems.count) * rowHeight, 600)
+		let height = 12 + searchBarH + rowsHeight   // 6pt top + 6pt bottom padding
+		panel.setContentSize(NSSize(width: contentWidth, height: max(height, 200)))
 		panel.center()
 		optionPanel = panel
 		panel.orderFrontRegardless()
