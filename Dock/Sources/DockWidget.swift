@@ -359,6 +359,8 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 		}
 		let nameCap: CGFloat = 200
 		let contentWidth = hPad + iconSize + gap + min(maxNameWidth, nameCap) + gap + keyCol + hPad
+		/// Stack is pinned to the effect with (hPad - 2) on each side.
+		let rowWidth = contentWidth - 2 * (hPad - 2)
 
 		let panel = NSPanel(contentRect: NSRect(x: 0, y: 0, width: contentWidth, height: 200),
 							styleMask: [.borderless, .nonactivatingPanel],
@@ -405,7 +407,7 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 			let row = CheatSheetRowView(highlighted: isActive)
 			row.translatesAutoresizingMaskIntoConstraints = false
 			row.heightAnchor.constraint(equalToConstant: rowHeight).isActive = true
-			row.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
+			row.widthAnchor.constraint(equalToConstant: rowWidth).isActive = true
 
 			let inner = NSStackView()
 			inner.orientation = .horizontal
