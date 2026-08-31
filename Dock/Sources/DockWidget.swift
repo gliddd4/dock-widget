@@ -13,13 +13,12 @@ import ApplicationServices
 
 /// A single cheat-sheet row. Draws a native-style selection pill behind
 /// the frontmost app's row (matches the highlight Apple uses in menus).
+/// Mirror of the open-source Snap launcher's result row: a flat, full-width
+/// solid highlight (#FF79C6) behind the selected app, exactly as Snap draws it.
 private final class CheatSheetRowView: NSView {
 	var highlighted: Bool = false {
 		didSet { needsDisplay = true }
 	}
-	/// Horizontal inset of the highlight capsule so it pads the number on
-	/// the right exactly as much as it pads the app icon on the left.
-	var pillInsetX: CGFloat = 8
 	init(highlighted: Bool) {
 		super.init(frame: .zero)
 		self.highlighted = highlighted
@@ -36,10 +35,9 @@ private final class CheatSheetRowView: NSView {
 	override func draw(_ dirtyRect: NSRect) {
 		super.draw(dirtyRect)
 		guard highlighted else { return }
-		let inset = bounds.insetBy(dx: pillInsetX, dy: 2)
-		let path = NSBezierPath(roundedRect: inset, xRadius: 10, yRadius: 10)
-		NSColor.white.withAlphaComponent(0.14).setFill()
-		path.fill()
+		let c = NSColor(calibratedRed: 0xFF / 255.0, green: 0x79 / 255.0, blue: 0xC6 / 255.0, alpha: 1)
+		c.setFill()
+		bounds.fill()
 	}
 }
 
@@ -347,62 +345,54 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 
 		let activeBundleId = NSWorkspace.shared.frontmostApplication?.bundleIdentifier
 
-		/// Tailored to look like a native menu / search panel, not a developer HUD.
-		let rowHeight:  CGFloat = 44
-		let hPad:       CGFloat = 18
-		let rowInset:   CGFloat = 8   // Apple list-row leading/trailing padding
-		let iconSize:   CGFloat = 32  // match the icon size on the Touch Bar dock
+		// Exact palette + metrics from the open-source Snap launcher:
+		// background #282A36, text #F8F8F2, highlight #FF79C6, Menlo 18,
+		// 70pt rows, 50pt icons, flat rectangle window (no rounding/shadow).
+		let bgColor   = NSColor(calibratedRed: 0x28 / 255.0, green: 0x2A / 255.0, blue: 0x36 / 255.0, alpha: 1)
+		let textColor = NSColor(calibratedRed: 0xF8 / 255.0, green: 0xF8 / 255.0, blue: 0xF2 / 255.0, alpha: 1)
+		let font = NSFont(name: "Menlo", size: 18) ?? NSFont.systemFont(ofSize: 18)
+
+		let rowHeight:  CGFloat = 70   // Snap resultItemHeight
+		let iconSize:   CGFloat = 50   // Snap iconSizeWidth/Height
+		let rowInset:   CGFloat = 12   // Snap row .padding() (leading/trailing)
 		let gap:        CGFloat = 14
-		let keyCol:     CGFloat = 30
-		let nameFont = NSFont.systemFont(ofSize: 15, weight: .regular)
+		let keyCol:     CGFloat = 40
 
 		/// Measure the widest name so the panel hugs its content (capped).
 		var maxNameWidth: CGFloat = 0
 		for item in dockItems {
-			let w = (item.name as NSString?)?.size(withAttributes: [.font: nameFont]).width ?? 0
+			let w = (item.name as NSString?)?.size(withAttributes: [.font: font]).width ?? 0
 			maxNameWidth = max(maxNameWidth, w)
 		}
 		let nameCap: CGFloat = 200
-		let contentWidth = hPad + iconSize + gap + min(maxNameWidth, nameCap) + gap + keyCol + hPad
-		/// Stack is pinned to the effect with (hPad - 2) on each side.
-		let rowWidth = contentWidth - 2 * (hPad - 2)
+		let contentWidth = rowInset + iconSize + gap + min(maxNameWidth, nameCap) + gap + keyCol + rowInset
 
 		let panel = NSPanel(contentRect: NSRect(x: 0, y: 0, width: contentWidth, height: 200),
 							styleMask: [.borderless, .nonactivatingPanel],
 							backing: .buffered, defer: false)
 		panel.level = .floating
-		panel.isOpaque = false
-		panel.backgroundColor = .clear
-		panel.hasShadow = true
+		panel.isOpaque = true
+		panel.backgroundColor = bgColor
+		panel.hasShadow = false
 		panel.hidesOnDeactivate = false
 		panel.isReleasedWhenClosed = false
 		panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
 
-		/// Light native popover/search material with a hairline border and large radius.
-		let effect = NSVisualEffectView(frame: NSRect(x: 0, y: 0, width: contentWidth, height: 200))
-		effect.material = .popover
-		effect.state = .active
-		effect.blendingMode = .behindWindow
-		effect.wantsLayer = true
-		effect.layer?.cornerRadius = 18
-		effect.layer?.masksToBounds = true
-		effect.layer?.borderWidth = 0.5
-		effect.layer?.borderColor = NSColor.black.withAlphaComponent(0.12).cgColor
-		panel.contentView = effect
+		let container = NSView(frame: NSRect(x: 0, y: 0, width: contentWidth, height: 200))
+		panel.contentView = container
 
 		/// One full-width row per app (same order as the Touch Bar dock).
 		let stack = NSStackView()
 		stack.orientation = .vertical
 		stack.alignment = .leading
 		stack.spacing = 0
-		stack.edgeInsets = NSEdgeInsets(top: 8, left: 0, bottom: 8, right: 0)
 		stack.translatesAutoresizingMaskIntoConstraints = false
-		effect.addSubview(stack)
+		container.addSubview(stack)
 		NSLayoutConstraint.activate([
-			stack.topAnchor.constraint(equalTo: effect.topAnchor),
-			stack.leadingAnchor.constraint(equalTo: effect.leadingAnchor, constant: hPad - 2),
-			stack.trailingAnchor.constraint(equalTo: effect.trailingAnchor, constant: -(hPad - 2)),
-			stack.bottomAnchor.constraint(equalTo: effect.bottomAnchor)
+			stack.topAnchor.constraint(equalTo: container.topAnchor),
+			stack.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+			stack.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+			stack.bottomAnchor.constraint(equalTo: container.bottomAnchor)
 		])
 
 		for (index, item) in dockItems.enumerated() {
@@ -410,10 +400,9 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 			let isRunning = item.isRunning
 
 			let row = CheatSheetRowView(highlighted: isActive)
-			row.pillInsetX = rowInset
 			row.translatesAutoresizingMaskIntoConstraints = false
 			row.heightAnchor.constraint(equalToConstant: rowHeight).isActive = true
-			row.widthAnchor.constraint(equalToConstant: rowWidth).isActive = true
+			row.widthAnchor.constraint(equalToConstant: contentWidth).isActive = true
 
 			let inner = NSStackView()
 			inner.orientation = .horizontal
@@ -436,16 +425,15 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 			iconView.heightAnchor.constraint(equalToConstant: iconSize).isActive = true
 
 			let nameLabel = NSTextField(labelWithString: item.name ?? "")
-			nameLabel.font = nameFont
-			nameLabel.textColor = .labelColor
+			nameLabel.font = font
+			nameLabel.textColor = textColor
 			nameLabel.alphaValue = isRunning ? 1.0 : 0.45
 			nameLabel.lineBreakMode = .byTruncatingTail
 
-			/// Trailing key equivalent (like ⌘P in a menu): tabular digits,
-			/// right-aligned, bright only for the frontmost app.
+			/// Trailing hotkey number in the same Menlo 18 as Snap's row text.
 			let keyLabel = NSTextField(labelWithString: index < 9 ? "\(index + 1)" : " ")
-			keyLabel.font = NSFont.monospacedDigitSystemFont(ofSize: 15, weight: .semibold)
-			keyLabel.textColor = isActive ? .labelColor : .secondaryLabelColor
+			keyLabel.font = font
+			keyLabel.textColor = textColor
 			keyLabel.alphaValue = isRunning ? 1.0 : (isActive ? 1.0 : 0.6)
 			keyLabel.alignment = .right
 
@@ -478,8 +466,8 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 		}
 
 		/// Size the panel to fit its rows (capped so it never covers the screen).
-		let height = min(CGFloat(dockItems.count) * rowHeight + 16, 480)
-		panel.setContentSize(NSSize(width: contentWidth, height: max(height, rowHeight + 16)))
+		let height = min(CGFloat(dockItems.count) * rowHeight, 600)
+		panel.setContentSize(NSSize(width: contentWidth, height: max(height, rowHeight)))
 		panel.center()
 		optionPanel = panel
 		panel.orderFrontRegardless()
