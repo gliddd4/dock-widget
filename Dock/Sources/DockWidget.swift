@@ -312,7 +312,19 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 
 	private func showOptionPanel() {
 		guard optionPanel == nil, !dockItems.isEmpty else { return }
-		let panel = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 360, height: 300),
+
+		/// Size the panel to hug its widest row instead of leaving dead space on the right.
+		let nameFont = NSFont.systemFont(ofSize: 14, weight: .regular)
+		var maxNameWidth: CGFloat = 0
+		for item in dockItems {
+			let w = (item.name as NSString?)?.size(withAttributes: [.font: nameFont]).width ?? 0
+			maxNameWidth = max(maxNameWidth, w)
+		}
+		let nameCap: CGFloat = 200
+		let leadingNumCol: CGFloat = 22
+		let contentWidth = 16 + leadingNumCol + 10 + 26 + 10 + min(maxNameWidth, nameCap) + 16
+
+		let panel = NSPanel(contentRect: NSRect(x: 0, y: 0, width: contentWidth, height: 300),
 							styleMask: [.borderless, .nonactivatingPanel],
 							backing: .buffered, defer: false)
 		panel.level = .floating
@@ -324,7 +336,7 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 		panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
 
 		/// Blurred dark background, Spotlight-style
-		let effect = NSVisualEffectView(frame: NSRect(x: 0, y: 0, width: 360, height: 300))
+		let effect = NSVisualEffectView(frame: NSRect(x: 0, y: 0, width: contentWidth, height: 300))
 		effect.material = .hudWindow
 		effect.state = .active
 		effect.blendingMode = .behindWindow
@@ -372,7 +384,7 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 			iconView.heightAnchor.constraint(equalToConstant: 26).isActive = true
 
 			let nameLabel = NSTextField(labelWithString: item.name ?? "")
-			nameLabel.font = NSFont.systemFont(ofSize: 14, weight: .regular)
+			nameLabel.font = nameFont
 			nameLabel.textColor = .white
 			nameLabel.alphaValue = isRunning ? 1.0 : 0.55
 			nameLabel.lineBreakMode = .byTruncatingTail
@@ -386,7 +398,7 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 		/// Size the panel to fit its rows (capped so it never covers the screen)
 		let rowHeight: CGFloat = 30
 		let height = min(CGFloat(dockItems.count) * rowHeight + 28, 480)
-		panel.setContentSize(NSSize(width: 360, height: max(height, 90)))
+		panel.setContentSize(NSSize(width: contentWidth, height: max(height, 90)))
 		panel.center()
 		optionPanel = panel
 		panel.orderFrontRegardless()
