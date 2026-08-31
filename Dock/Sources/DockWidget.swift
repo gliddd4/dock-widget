@@ -52,19 +52,9 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 	/// "minimize into application icon" hides windows from the AX list.
 	private var minimizedAppIdentifiers: Set<String> = []
 
-	// MARK: Option-hold app switcher (Spotlight-style)
+	// MARK: Option-hold hotkey cheat sheet
 	private var optionMonitor: Any?
-	private var switcherActive = false
-	private var switcherItems: [DockItem] = []
-	private var switcherIndex = 0
-	private var switcherQuery = ""
-	private var switcherScrollAccumulator: CGFloat = 0
-	private let switcherView = NSView(frame: .zero)
-	private let switcherPillView = NSView(frame: .zero)
-	private let switcherIconView = NSImageView(frame: .zero)
-	private let switcherNameLabel = NSTextField(labelWithString: "")
-	private let switcherQueryLabel = NSTextField(labelWithString: "")
-	private let switcherContentStack = NSStackView()
+	private var optionPanel: NSPanel?
 
 	/// Current adjustable dock item height (icon grows via the adaptive constraints)
 	private var currentItemHeight: CGFloat {
@@ -128,12 +118,11 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 		OptionNumberHotKeys.shared.register { [weak self] index in
 			self?.handleHotKey(index)
 		}
-		/// Build the Spotlight-style switcher overlay and watch for Option held
-		self.setupSwitcherView()
+		/// Watch for the Option key being held: show the numbered app cheat sheet
 		self.optionMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.flagsChanged]) { [weak self] event in
 			let optionDown = event.modifierFlags.contains(.option)
 			DispatchQueue.main.async {
-				self?.setSwitcherActive(optionDown)
+				self?.setOptionPanelVisible(optionDown)
 			}
 		}
 	}
@@ -150,27 +139,15 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 	private func handleHotKey(_ index: Int) {
 		switch index {
 		case 1...9:
-			if switcherActive {
-				if switcherQuery.isEmpty {
-					/// Option held + digit with no search: jump straight to the Nth app
-					switcherIndex = index - 1
-					switcherItems = dockItems
-					exitSwitcher(activate: true)
-				}else {
-					/// Searching: digits refine the query
-					handleSearchInput(String(index))
-				}
-			}else {
-				activateItem(at: index - 1)
-			}
+			activateItem(at: index - 1)
 		case 10:
-			if !switcherActive { adjustItemHeight(by: -1) }
+			adjustItemHeight(by: -1)
 		case 11:
-			if !switcherActive { adjustItemHeight(by: 1) }
+			adjustItemHeight(by: 1)
 		case 12:
-			if !switcherActive { adjustItemYOffset(by: 1) }
+			adjustItemYOffset(by: 1)   // "{" : move up
 		case 13:
-			if !switcherActive { adjustItemYOffset(by: -1) }
+			adjustItemYOffset(by: -1)  // "}" : move down
 		default:
 			break
 		}
@@ -213,13 +190,7 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 	}
 	
 	func viewDidDisappear() {
-		if switcherActive {
-			switcherActive = false
-			OptionNumberHotKeys.shared.unregisterSearch()
-			switcherItems = []
-			switcherView.isHidden = true
-			dockScrubber.isHidden = false
-		}
+		hideOptionPanel()
 		if let monitor = optionMonitor {
 			NSEvent.removeMonitor(monitor)
 			optionMonitor = nil
@@ -326,144 +297,98 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 		/// persistentScrubber is intentionally never added to the stack view
 	}
 	
-	// MARK: Option-hold app switcher
+	// MARK: Option-hold hotkey cheat sheet
 
-	/// Build the Spotlight/Raycast-style switcher view (hidden until Option is held).
-	private func setupSwitcherView() {
-		switcherView.isHidden = true
+	/// Show/hide a floating cheat sheet on the main screen that lists the dock
+	/// apps with their Option+number hotkey, so the user knows what to press
+	/// when the Touch Bar isn't visible.
+	private func setOptionPanelVisible(_ visible: Bool) {
+		if visible {
+			showOptionPanel()
+		}else {
+			hideOptionPanel()
+		}
+	}
 
-		switcherPillView.wantsLayer = true
-		switcherPillView.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.12).cgColor
-		switcherPillView.layer?.cornerRadius = 13
-		switcherPillView.translatesAutoresizingMaskIntoConstraints = false
+	private func showOptionPanel() {
+		guard optionPanel == nil, !dockItems.isEmpty else { return }
+		let panel = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 360, height: 300),
+							styleMask: [.borderless, .nonactivatingPanel],
+							backing: .buffered, defer: false)
+		panel.level = .floating
+		panel.isOpaque = false
+		panel.backgroundColor = .clear
+		panel.hasShadow = true
+		panel.hidesOnDeactivate = false
+		panel.isReleasedWhenClosed = false
+		panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
 
-		switcherIconView.imageScaling = .scaleProportionallyUpOrDown
-		switcherIconView.translatesAutoresizingMaskIntoConstraints = false
+		/// Blurred dark background, Spotlight-style
+		let effect = NSVisualEffectView(frame: NSRect(x: 0, y: 0, width: 360, height: 300))
+		effect.material = .hudWindow
+		effect.state = .active
+		effect.blendingMode = .behindWindow
+		effect.wantsLayer = true
+		effect.layer?.cornerRadius = 14
+		effect.layer?.masksToBounds = true
+		panel.contentView = effect
 
-		switcherNameLabel.font = NSFont.systemFont(ofSize: 15, weight: .medium)
-		switcherNameLabel.textColor = .white
-		switcherNameLabel.lineBreakMode = .byTruncatingTail
-		switcherNameLabel.translatesAutoresizingMaskIntoConstraints = false
-
-		switcherQueryLabel.font = NSFont.systemFont(ofSize: 12, weight: .regular)
-		switcherQueryLabel.textColor = NSColor.white.withAlphaComponent(0.6)
-		switcherQueryLabel.translatesAutoresizingMaskIntoConstraints = false
-
-		switcherContentStack.orientation = .horizontal
-		switcherContentStack.alignment = .centerY
-		switcherContentStack.spacing = 8
-		switcherContentStack.translatesAutoresizingMaskIntoConstraints = false
-		switcherContentStack.addArrangedSubview(switcherIconView)
-		switcherContentStack.addArrangedSubview(switcherQueryLabel)
-		switcherContentStack.addArrangedSubview(switcherNameLabel)
-
-		switcherView.addSubview(switcherPillView)
-		switcherView.addSubview(switcherContentStack)
-		switcherView.translatesAutoresizingMaskIntoConstraints = false
-
+		/// Rows: hotkey number, icon, name — same order as the Touch Bar dock
+		let stack = NSStackView()
+		stack.orientation = .vertical
+		stack.alignment = .leading
+		stack.spacing = 4
+		stack.edgeInsets = NSEdgeInsets(top: 14, left: 16, bottom: 14, right: 16)
+		stack.translatesAutoresizingMaskIntoConstraints = false
+		effect.addSubview(stack)
 		NSLayoutConstraint.activate([
-			switcherContentStack.centerXAnchor.constraint(equalTo: switcherView.centerXAnchor),
-			switcherContentStack.centerYAnchor.constraint(equalTo: switcherView.centerYAnchor),
-			switcherIconView.widthAnchor.constraint(equalToConstant: 26),
-			switcherIconView.heightAnchor.constraint(equalToConstant: 26),
-			switcherNameLabel.widthAnchor.constraint(lessThanOrEqualToConstant: 170),
-			switcherPillView.leadingAnchor.constraint(equalTo: switcherContentStack.leadingAnchor, constant: -12),
-			switcherPillView.trailingAnchor.constraint(equalTo: switcherContentStack.trailingAnchor, constant: 12),
-			switcherPillView.centerYAnchor.constraint(equalTo: switcherContentStack.centerYAnchor),
-			switcherPillView.heightAnchor.constraint(equalToConstant: 26),
-			switcherView.heightAnchor.constraint(equalToConstant: 30)
+			stack.topAnchor.constraint(equalTo: effect.topAnchor),
+			stack.leadingAnchor.constraint(equalTo: effect.leadingAnchor),
+			stack.trailingAnchor.constraint(equalTo: effect.trailingAnchor),
+			stack.bottomAnchor.constraint(equalTo: effect.bottomAnchor)
 		])
-		stackView.addArrangedSubview(switcherView)
+
+		for (index, item) in dockItems.enumerated() {
+			let row = NSStackView()
+			row.orientation = .horizontal
+			row.alignment = .centerY
+			row.spacing = 10
+
+			let numberLabel = NSTextField(labelWithString: index < 9 ? "\(index + 1)" : " ")
+			numberLabel.font = NSFont.monospacedDigitSystemFont(ofSize: 15, weight: .semibold)
+			numberLabel.textColor = index < 9 ? NSColor.systemYellow : NSColor.secondaryLabelColor
+			numberLabel.widthAnchor.constraint(equalToConstant: 22).isActive = true
+
+			let iconView = NSImageView()
+			iconView.image = item.icon
+			iconView.imageScaling = .scaleProportionallyUpOrDown
+			iconView.widthAnchor.constraint(equalToConstant: 26).isActive = true
+			iconView.heightAnchor.constraint(equalToConstant: 26).isActive = true
+
+			let nameLabel = NSTextField(labelWithString: item.name ?? "")
+			nameLabel.font = NSFont.systemFont(ofSize: 14, weight: .regular)
+			nameLabel.textColor = .white
+			nameLabel.lineBreakMode = .byTruncatingTail
+
+			row.addArrangedSubview(numberLabel)
+			row.addArrangedSubview(iconView)
+			row.addArrangedSubview(nameLabel)
+			stack.addArrangedSubview(row)
+		}
+
+		/// Size the panel to fit its rows (capped so it never covers the screen)
+		let rowHeight: CGFloat = 30
+		let height = min(CGFloat(dockItems.count) * rowHeight + 28, 480)
+		panel.setContentSize(NSSize(width: 360, height: max(height, 90)))
+		panel.center()
+		optionPanel = panel
+		panel.orderFrontRegardless()
+		NSLog("[DockWidget] option cheat sheet shown (%d apps)", dockItems.count)
 	}
 
-	/// Enter/exit switcher mode as the Option key is held/released.
-	private func setSwitcherActive(_ active: Bool) {
-		guard switcherActive != active else { return }
-		if active {
-			enterSwitcher()
-		}else {
-			exitSwitcher(activate: true)
-		}
-	}
-
-	private func enterSwitcher() {
-		switcherActive = true
-		switcherQuery = ""
-		switcherItems = dockItems
-		if let index = frontmostIndex, index < switcherItems.count {
-			switcherIndex = index
-		}else {
-			switcherIndex = 0
-		}
-		switcherScrollAccumulator = 0
-		OptionNumberHotKeys.shared.registerSearch { [weak self] char in
-			self?.handleSearchInput(char)
-		}
-		dockScrubber.isHidden = true
-		switcherView.isHidden = false
-		updateSwitcherUI()
-		NSLog("[DockWidget] app switcher entered (%d apps)", switcherItems.count)
-	}
-
-	private func exitSwitcher(activate: Bool) {
-		guard switcherActive else { return }
-		switcherActive = false
-		OptionNumberHotKeys.shared.unregisterSearch()
-		let selected = switcherIndex < switcherItems.count ? switcherItems[switcherIndex] : nil
-		switcherItems = []
-		switcherView.isHidden = true
-		dockScrubber.isHidden = false
-		if activate, let selected = selected {
-			dockRepository.launch(item: selected, completion: { _ in })
-		}
-		NSLog("[DockWidget] app switcher exited")
-	}
-
-	/// Move the switcher selection by one app (wraps around).
-	private func cycleSwitcher(by direction: Int) {
-		guard switcherActive, !switcherItems.isEmpty else { return }
-		switcherIndex = (switcherIndex + direction + switcherItems.count) % switcherItems.count
-		updateSwitcherUI()
-	}
-
-	/// Append/delete a character in the search query and re-filter.
-	private func handleSearchInput(_ char: String) {
-		guard switcherActive else { return }
-		if char == "\u{08}" {
-			guard !switcherQuery.isEmpty else { return }
-			switcherQuery.removeLast()
-		}else {
-			switcherQuery.append(char)
-		}
-		filterSwitcherItems()
-		updateSwitcherUI()
-	}
-
-	private func filterSwitcherItems() {
-		let previousSelection = switcherIndex < switcherItems.count ? switcherItems[switcherIndex] : nil
-		let query = switcherQuery.lowercased()
-		switcherItems = query.isEmpty
-			? dockItems
-			: dockItems.filter { ($0.name?.lowercased().contains(query) ?? false) }
-		if let previousSelection = previousSelection,
-		   let newIndex = switcherItems.firstIndex(where: { $0.diffId == previousSelection.diffId }) {
-			switcherIndex = newIndex
-		}else {
-			switcherIndex = 0
-		}
-	}
-
-	private func updateSwitcherUI() {
-		if switcherItems.isEmpty {
-			switcherIconView.image = nil
-			switcherNameLabel.stringValue = switcherQuery.isEmpty ? "No apps" : "No results"
-		}else {
-			let item = switcherItems[min(switcherIndex, switcherItems.count - 1)]
-			switcherIconView.image = item.icon
-			switcherNameLabel.stringValue = item.name ?? ""
-		}
-		switcherQueryLabel.stringValue = switcherQuery
-		switcherQueryLabel.isHidden = switcherQuery.isEmpty
+	private func hideOptionPanel() {
+		optionPanel?.orderOut(nil)
+		optionPanel = nil
 	}
 
 	// MARK: ScreenEdgeMouseDelegate (Select, Scroll & Drag)
@@ -480,20 +405,6 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 	}
 	
 	func screenEdgeController(_ controller: PKScreenEdgeController, mouseScrollWithDelta delta: CGFloat, atLocation location: NSPoint, in view: NSView) {
-		if switcherActive {
-			/// Swipe across the Touch Bar to cycle through apps while Option is held
-			switcherScrollAccumulator += delta
-			let step: CGFloat = 46
-			while switcherScrollAccumulator >= step {
-				cycleSwitcher(by: 1)
-				switcherScrollAccumulator -= step
-			}
-			while switcherScrollAccumulator <= -step {
-				cycleSwitcher(by: -1)
-				switcherScrollAccumulator += step
-			}
-			return
-		}
 		itemViewWithMouseOver?.set(isMouseOver: false)
 		guard let scrubber = scrubber(at: location, in: view) else {
 			return
@@ -502,11 +413,6 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 	}
 	
 	func screenEdgeController(_ controller: PKScreenEdgeController, mouseClickAtLocation location: NSPoint, in view: NSView) {
-		if switcherActive {
-			/// Tap while Option held: pick the shown app
-			exitSwitcher(activate: true)
-			return
-		}
 		itemViewWithMouseOver?.set(isMouseOver: false)
 		launchItem(item(at: location, in: view))
 	}
