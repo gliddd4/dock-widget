@@ -13,6 +13,27 @@ import ApplicationServices
 
 /// A single cheat-sheet row. Draws a native-style selection pill behind
 /// the frontmost app's row (matches the highlight Apple uses in menus).
+/// Small magnifying-glass used in the fake search bar. Drawn by hand so it
+/// works on older deployment targets that lack NSImage(systemSymbolName:).
+private final class MagnifierIconView: NSView {
+	private let strokeColor = NSColor.secondaryLabelColor
+	override func draw(_ dirtyRect: NSRect) {
+		let c = strokeColor
+		let center = CGPoint(x: bounds.midX - 1, y: bounds.midY + 1.5)
+		let r: CGFloat = 5
+		let circle = NSBezierPath(ovalIn: NSRect(x: center.x - r, y: center.y - r, width: r * 2, height: r * 2))
+		circle.lineWidth = 1.6
+		c.setStroke()
+		circle.stroke()
+		let handle = NSBezierPath()
+		handle.lineWidth = 1.6
+		handle.lineCapStyle = .round
+		handle.move(to: CGPoint(x: center.x + r * 0.7, y: center.y - r * 0.7))
+		handle.line(to: CGPoint(x: center.x + r * 1.25, y: center.y - r * 1.25))
+		handle.stroke()
+	}
+}
+
 /// Raycast-style selected row: a soft white rounded pill behind the
 /// frontmost app (adapts to light/dark), like Raycast's result highlight.
 private final class CheatSheetRowView: NSView {
@@ -425,10 +446,10 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 			searchInner.trailingAnchor.constraint(lessThanOrEqualTo: searchBar.trailingAnchor, constant: -14)
 		])
 
-		let mag = NSImageView()
-		mag.image = NSImage(systemSymbolName: "magnifyingglass", accessibilityDescription: nil)
-		mag.contentTintColor = .secondaryLabelColor
-		mag.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 15, weight: .regular)
+		let mag = MagnifierIconView()
+		mag.translatesAutoresizingMaskIntoConstraints = false
+		mag.widthAnchor.constraint(equalToConstant: 16).isActive = true
+		mag.heightAnchor.constraint(equalToConstant: 16).isActive = true
 		searchInner.addArrangedSubview(mag)
 
 		let searchPlaceholder = NSTextField(labelWithString: "Search apps")
