@@ -609,7 +609,10 @@ extension DockWidget: NSScrubberDelegate {
 			/// state back can fail when "minimize to application icon" hides the
 			/// window from the AX windows list. Drop-out-of-our-list externally.
 			let wasMinimizedHere = minimizedAppIdentifiers.remove(item.bundleIdentifier ?? "") != nil
-			if wasMinimizedHere || isAppMinimized(app) {
+			/// If the app has no visible window, every one of its windows is
+			/// minimized (possibly into the app icon, which AX drops from its
+			/// windows list) — restore it.
+			if wasMinimizedHere || !hasVisibleWindow(app) {
 				restoreApp(bundleIdentifier: item.bundleIdentifier)
 				return
 			}
@@ -624,8 +627,11 @@ extension DockWidget: NSScrubberDelegate {
 		dockRepository.launch(item: item, completion: { _ in })
 	}
 
-	/// Whether the app currently has no visible (non-minimized) window.
-	private func isAppMinimized(_ app: NSRunningApplication) -> Bool {
+	/// Whether the app currently has at least one visible (non-minimized)
+	/// window. "Minimize into application icon" removes the minimized window
+	/// from the AX windows list entirely, so an empty list counts as "all
+	/// minimized" and the toggle must restore instead of minimize.
+	private func hasVisibleWindow(_ app: NSRunningApplication) -> Bool {
 		let appElement = AXUIElementCreateApplication(app.processIdentifier)
 		guard let windows = copyAttribute(appElement, kAXWindowsAttribute as CFString) as? [AXUIElement],
 			  !windows.isEmpty else {
@@ -633,10 +639,10 @@ extension DockWidget: NSScrubberDelegate {
 		}
 		for window in windows {
 			if let minimized = copyAttribute(window, kAXMinimizedAttribute as CFString) as? NSNumber, minimized.boolValue == false {
-				return false
+				return true
 			}
 		}
-		return true
+		return false
 	}
 
 	/// Restore (unminimize) every minimized window of the app and bring it forward.
@@ -646,6 +652,17 @@ extension DockWidget: NSScrubberDelegate {
 			return
 		}
 		let appElement = AXUIElementCreateApplication(app.processIdentifier)
+		/// Restore minimized windows from the AX minimized-windows list first:
+		/// it includes windows minimized into the application icon, which are
+		/// absent from the regular AX windows list.
+		var minimizedRef: CFTypeRef?
+		if AXUIElementCopyAttributeValue(appElement, kAXMinimizedWindowsAttribute as CFString, &minimizedRef) == .success,
+		   let minimizedWindows = minimizedRef as? [AXUIElement] {
+			for window in minimizedWindows {
+				AXUIElementSetAttributeValue(window, kAXMinimizedAttribute as CFString, kCFBooleanFalse as CFTypeRef)
+			}
+		}
+		/// Also unminimize any window still visible to the regular AX windows list.
 		if let windows = copyAttribute(appElement, kAXWindowsAttribute as CFString) as? [AXUIElement] {
 			for window in windows {
 				if let minimized = copyAttribute(window, kAXMinimizedAttribute as CFString) as? NSNumber, minimized.boolValue {
@@ -653,7 +670,8 @@ extension DockWidget: NSScrubberDelegate {
 				}
 			}
 		}
-		app.activate(options: [.activateIgnoringOtherApps])
+		app.unhide()
+		app.activate(options: [.activateAllWindows, .activateIgnoringOtherApps])
 	}
 
 	/// Minimize the frontmost window of the given app (yellow traffic-light).
