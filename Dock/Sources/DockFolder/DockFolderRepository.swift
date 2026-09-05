@@ -7,10 +7,13 @@
 //
 
 import Foundation
-import Quartz
 import PockKit
 
 class DockFolderRepository {
+    
+    deinit {
+        NSLog("[DockWidget][MEM] DockFolderRepository deinit. RSS: %d MB", pockMemoryFootprintMB())
+    }
     
     private weak var rootFolderController: DockFolderController?
     
@@ -38,7 +41,7 @@ class DockFolderRepository {
                 guard let itemData = try? elementUrl.resourceValues(forKeys: Set(resourceKeys)).allValues else {
                     continue
                 }
-                let icon          = DockFolderRepository.icon(for: elementUrl) ?? itemData[.effectiveIconKey] as? NSImage
+                let icon          = itemData[.effectiveIconKey] as? NSImage ?? DockRepository.getIcon(orPath: elementUrl.path)
                 let name          = itemData[.nameKey]                     as? String
                 let detail        = itemData[.localizedTypeDescriptionKey] as? String
                 let isDirectory   = itemData[.isDirectoryKey]              as? Bool
@@ -48,6 +51,7 @@ class DockFolderRepository {
             }
             returnable.sort(by: { $0.name ?? "" < $1.name ?? "" })
             DispatchQueue.main.async {
+                NSLog("[DockWidget][MEM] Folder scan done: %d items for %@. RSS: %d MB", returnable.count, path.lastPathComponent, pockMemoryFootprintMB())
                 completion?(returnable)
             }
         }
@@ -78,6 +82,7 @@ class DockFolderRepository {
 
 extension DockFolderRepository {
     public func push(_ path: URL) {
+        NSLog("[DockWidget][MEM] push folder: %@ (RSS: %d MB, nav stack: %d)", path.lastPathComponent, pockMemoryFootprintMB(), navigationController?.childControllers.count ?? -1)
         let controller: DockFolderController = DockFolderController.load()
         controller.set(dockFolderRepository: self)
         controller.set(folderUrl: path)
@@ -90,24 +95,11 @@ extension DockFolderRepository {
     }
     public func popDockFolderController() {
         navigationController?.popLastController()
+        NSLog("[DockWidget][MEM] popped folder controller. RSS: %d MB, nav stack: %d", pockMemoryFootprintMB(), navigationController?.childControllers.count ?? -1)
     }
     public func popToRootDockFolderController() {
         navigationController?.popToRootController()
+        NSLog("[DockWidget][MEM] popped to root folder controller. RSS: %d MB, nav stack: %d", pockMemoryFootprintMB(), navigationController?.childControllers.count ?? -1)
     }
 }
 
-extension DockFolderRepository {
-    class func icon(for url: URL) -> NSImage? {
-        var options: CFDictionary? = [kQLThumbnailOptionIconModeKey: false] as CFDictionary
-        var ref = QLThumbnailCreate(kCFAllocatorDefault, url as NSURL, CGSize(width: 30, height: 30), options)
-        var thumbnail = ref?.takeRetainedValue()
-        var cgImageRef = QLThumbnailCopyImage(thumbnail)
-        let cgImage = cgImageRef?.takeRetainedValue()
-        options    = nil
-        ref        = nil
-        thumbnail  = nil
-        cgImageRef = nil
-        guard cgImage != nil else { return nil }
-        return NSImage(cgImage: cgImage!, size: CGSize(width: cgImage!.width, height: cgImage!.height))
-    }
-}

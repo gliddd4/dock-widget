@@ -52,6 +52,7 @@ class DockRepository {
 	
 	/// Deinit
 	deinit {
+		NSLog("[DockWidget][MEM] DockRepository deinit. RSS: %d MB", pockMemoryFootprintMB())
 		self.notificationBadgeRefreshTimer?.invalidate()
 		self.unregisterFromEventsAndNotifications()
 		dockFolderRepository = nil
@@ -205,6 +206,10 @@ extension DockRepository {
 				NSLog("[DockWidget]: Can't get app bundle identifier")
 				continue
 			}
+			/// Skip Launchpad and any non-app tile
+			guard bundleIdentifier != Constants.kLaunchpadIdentifier else {
+				continue
+			}
 			/// Check if item already exists
 			guard defaultItems.contains(where: { $0.bundleIdentifier == bundleIdentifier }) == false else {
 				continue
@@ -304,7 +309,10 @@ extension DockRepository {
 	/// Create item
 	private func createItem(for app: NSRunningApplication) -> DockItem? {
 		/// Create `DockItem` object
-		guard app.activationPolicy == .regular, let id = app.bundleIdentifier, id != Constants.kFinderIdentifier else {
+		guard app.activationPolicy == .regular,
+			  let id = app.bundleIdentifier,
+			  id != Constants.kFinderIdentifier,
+			  id != Constants.kLaunchpadIdentifier else {
 			return nil
 		}
 		guard let localizedName = app.localizedName,
@@ -381,6 +389,12 @@ extension DockRepository {
 			return
 		}
 		for item in dockItems {
+			/// Skip badges that would clip or look wrong next to certain fixed
+			/// dock items (e.g. the Settings app's octagonal tile).
+			if item.bundleIdentifier == Constants.kSettingsIdentifier {
+				item.badge = nil
+				continue
+			}
 			item.badge = PockDockHelper().getBadgeCountForItem(withName: item.name)
 		}
 		delegate.didUpdateBadge(for: self.dockItems)
@@ -491,18 +505,11 @@ extension DockRepository {
 	@discardableResult
 	private func activate(app: NSRunningApplication?) -> Bool {
 		guard let app = app else { return false }
-		let _windows = PockDockHelper().getWindowsOfApp(app.processIdentifier) as NSArray?
-		
-		if let windows = _windows as? [AppExposeItem], activateExpose(with: windows, app: app) {
-			return true
-		}else {
-			if !app.unhide() {
-				if !NSWorkspace.shared.launchApplication(withBundleIdentifier: app.bundleIdentifier!, options: .default, additionalEventParamDescriptor: nil, launchIdentifier: nil) {
-					return app.activate(options: .activateIgnoringOtherApps)
-				}
-			}
-			return true
-		}
+		/// Bring the app forward directly. The stock Pock path opened the App
+		/// Expose overlay whenever the app had more than one window, which made
+		/// activation look like a no-op (or flaky) depending on window count.
+		app.unhide()
+		return app.activate(options: [.activateAllWindows, .activateIgnoringOtherApps])
 	}
 	
 	private func activateExpose(with windows: [AppExposeItem], app: NSRunningApplication) -> Bool {

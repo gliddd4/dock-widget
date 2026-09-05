@@ -1,0 +1,47 @@
+name: Build Dock widget
+
+on:
+  push:
+    branches: [main, custom-dock]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install CocoaPods
+        run: |
+          if ! command -v pod >/dev/null 2>&1; then
+            sudo gem install cocoapods -N
+          fi
+          pod install --repo-update
+
+      - name: Build
+        run: |
+          set -o pipefail
+          xcodebuild -workspace Dock.xcworkspace \
+                     -scheme Dock \
+                     -configuration Release \
+                     -derivedDataPath build \
+                     CODE_SIGN_IDENTITY="-" \
+                     CODE_SIGN_STYLE=Manual \
+                     DEVELOPMENT_TEAM="" \
+                     ARCHS=x86_64 ONLY_ACTIVE_ARCH=YES \
+                     build 2>&1 | tee build.log | tail -5
+
+      - name: Package
+        if: success()
+        run: |
+          cp -R build/Build/Products/Release/Dock.pock ./Dock.pock
+          zip -qry Dock.pock.zip Dock.pock
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Dock.pock
+          path: |
+            Dock.pock.zip
+            build.log
+          if-no-files-found: ignore

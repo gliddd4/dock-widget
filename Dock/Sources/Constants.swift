@@ -7,28 +7,35 @@
 //
 
 import Foundation
+import Darwin
 
 class Constants {
 	/// Known class names
 	static let NSTouchBarView: 				String = "NSTouchBarView"
 	static let NSTouchBarItemContainerView: String = "NSTouchBarItemContainerView"
     /// Known identifiers
-    static let kFinderIdentifier: 	 String = "com.apple.finder"
-	static let kLaunchpadIdentifier: String = "com.apple.launchpad.launcher"
+    static let kFinderIdentifier:	 String = "com.apple.finder"
+    static let kFLStudioIdentifier:	 String = "com.image-line.flstudio"
+    static let kLaunchpadIdentifier: String = "com.apple.launchpad.launcher"
+	static let kSettingsIdentifier:  String = "com.apple.systempreferences"
     /// Known paths
     static let dockPlist = NSHomeDirectory().appending("/Library/Preferences/com.apple.dock.plist")
     static let trashPath = NSHomeDirectory().appending("/.Trash")
     /// UI
-    static let dockItemSize:            NSSize  = NSSize(width: 40, height: 30)
-	static var dockItemIconSize:        NSSize {
-		let val = Preferences[.hideRunningIndicator] ? 27 : 24
-		return NSSize(width: val, height: val)
-	}
-	static var dockItemDotSize:         NSSize {
-		return Preferences[.hideRunningIndicator] ? .zero : NSSize(width: 3,  height: 3)
-	}
-    static let dockItemBadgeSize:       NSSize  = NSSize(width: 10, height: 10)
-    static let dockItemCornerRadius:    CGFloat = 6
+    static let dockItemSize:            NSSize  = NSSize(width: 38, height: 36)
+    /// Calibrated vertical offset applied to the dock items (permanent default)
+    static let dockItemYOffsetDefault:  CGFloat = -3
+    /// UserDefaults key that overrides the dock item height (live calibration)
+    static let calibrationItemHeightKey: String = "PockCustomDockItemHeight"
+    /// UserDefaults key that overrides the dock item vertical offset (live calibration)
+    static let calibrationItemYOffsetKey: String = "PockCustomDockItemYOffset"
+	static let dockItemIconSize:        NSSize  = NSSize(width: 36, height: 36)
+	static let dockItemBadgeSize:       NSSize  = NSSize(width: 10, height: 10)
+    static let dockItemCornerRadius:    CGFloat = 0
+	/// Name reveal for the frontmost item
+	static let nameFontSize:            CGFloat = 13.75
+	static let nameMaxWidth:            CGFloat = 110
+	static let nameHorizontalPadding:   CGFloat = 5
     static let dockItemBounceThreshold: CGFloat = 10
     /// Keys
     static let kDockItemView:       NSUserInterfaceItemIdentifier = NSUserInterfaceItemIdentifier(rawValue: "kDockItemView")
@@ -53,6 +60,23 @@ extension NSScrubber {
 			scrollView.reflectScrolledClipView(clipView)
 		}
 	}
+}
+
+// MARK: Memory footprint helper (leak debugging)
+
+/// Current resident memory of this process, in MB. Returns -1 on failure.
+internal func pockMemoryFootprintMB() -> Int {
+    var info = mach_task_basic_info()
+    var count = mach_msg_type_number_t(MemoryLayout<mach_task_basic_info>.size / MemoryLayout<natural_t>.size)
+    let result = withUnsafeMutablePointer(to: &info) { pointer in
+        pointer.withMemoryRebound(to: integer_t.self, capacity: Int(count)) {
+            task_info(mach_task_self_, task_flavor_t(MACH_TASK_BASIC_INFO), $0, &count)
+        }
+    }
+    guard result == KERN_SUCCESS else {
+        return -1
+    }
+    return Int(info.resident_size / 1024 / 1024)
 }
 
 extension NSView {

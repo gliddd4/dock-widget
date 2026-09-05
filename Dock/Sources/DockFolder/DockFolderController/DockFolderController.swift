@@ -11,6 +11,10 @@ import PockKit
 
 class DockFolderController: PKTouchBarMouseController {
     
+    deinit {
+        NSLog("[DockWidget][MEM] DockFolderController deinit (%@). RSS: %d MB, elements: %d", folderUrl?.lastPathComponent ?? "<nil>", pockMemoryFootprintMB(), elements.count)
+    }
+    
     /// UI
 	@IBOutlet private weak var closeButton:  NSButton!
     @IBOutlet private weak var folderName:   NSTextField!
@@ -143,6 +147,7 @@ extension DockFolderController {
 extension DockFolderController {
     private func loadElements(reloadScrubber: Bool = true) {
         dockFolderRepository.getItems(in: folderUrl) { [weak self] elements in
+            NSLog("[DockWidget][MEM] folder loaded: %d elements for %@. RSS: %d MB", elements.count, self?.folderUrl?.lastPathComponent ?? "<nil>", pockMemoryFootprintMB())
             self?.elements = elements
             self?.folderDetail?.stringValue = "\(elements.count) " + "elements".localized
             if reloadScrubber {
