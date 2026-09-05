@@ -26,7 +26,6 @@ class FileMonitor {
     }
     
     deinit {
-        NSLog("[DockWidget][MEM] FileMonitor deinit")
         self.witness?.flush()
         self.witness = nil
     }

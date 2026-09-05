@@ -12,7 +12,6 @@ import PockKit
 class DockFolderRepository {
     
     deinit {
-        NSLog("[DockWidget][MEM] DockFolderRepository deinit. RSS: %d MB", pockMemoryFootprintMB())
     }
     
     private weak var rootFolderController: DockFolderController?
@@ -51,7 +50,6 @@ class DockFolderRepository {
             }
             returnable.sort(by: { $0.name ?? "" < $1.name ?? "" })
             DispatchQueue.main.async {
-                NSLog("[DockWidget][MEM] Folder scan done: %d items for %@. RSS: %d MB", returnable.count, path.lastPathComponent, pockMemoryFootprintMB())
                 completion?(returnable)
             }
         }
@@ -82,7 +80,6 @@ class DockFolderRepository {
 
 extension DockFolderRepository {
     public func push(_ path: URL) {
-        NSLog("[DockWidget][MEM] push folder: %@ (RSS: %d MB, nav stack: %d)", path.lastPathComponent, pockMemoryFootprintMB(), navigationController?.childControllers.count ?? -1)
         let controller: DockFolderController = DockFolderController.load()
         controller.set(dockFolderRepository: self)
         controller.set(folderUrl: path)
@@ -95,11 +92,9 @@ extension DockFolderRepository {
     }
     public func popDockFolderController() {
         navigationController?.popLastController()
-        NSLog("[DockWidget][MEM] popped folder controller. RSS: %d MB, nav stack: %d", pockMemoryFootprintMB(), navigationController?.childControllers.count ?? -1)
     }
     public func popToRootDockFolderController() {
         navigationController?.popToRootController()
-        NSLog("[DockWidget][MEM] popped to root folder controller. RSS: %d MB, nav stack: %d", pockMemoryFootprintMB(), navigationController?.childControllers.count ?? -1)
     }
 }
 

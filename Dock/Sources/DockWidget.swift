@@ -14,7 +14,6 @@ import ApplicationServices
 class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 	
 	deinit {
-		NSLog("[DockWidget][MEM] DockWidget deinit. RSS: %d MB", pockMemoryFootprintMB())
 	}
 	
 	static var identifier: String = "DockWidget"
@@ -99,7 +98,6 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 	}
 	
 	func initialize() {
-		NSLog("[DockWidget][MEM] DockWidget.initialize. RSS: %d MB", pockMemoryFootprintMB())
 		self.configureStackView()
 		self.configureDockScrubber()
 		self.configureSeparator()
@@ -193,7 +191,6 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 	private func adjustItemHeight(by delta: CGFloat) {
 		let newHeight = min(max(currentItemHeight + delta, 20), 48)
 		currentItemHeight = newHeight
-		NSLog("[DockWidget] calibration item height set to %.0f", newHeight)
 		dockScrubber.frame.size.height = newHeight
 		dockScrubber.scrubberLayout = makeDockLayout()
 		dockScrubber.reloadData()
@@ -207,7 +204,6 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 	private func adjustItemYOffset(by delta: CGFloat) {
 		let newOffset = max(min(currentItemYOffset + delta, 20), -20)
 		currentItemYOffset = newOffset
-		NSLog("[DockWidget] calibration item y offset set to %.0f", newOffset)
 		dockScrubber.scrubberLayout = makeDockLayout()
 		dockScrubber.reloadData()
 	}
@@ -218,9 +214,6 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 		DispatchQueue.main.async { [weak self] in
 			guard let self = self else { return }
 			self.dockScrubber.frame.size.height = self.stackView.bounds.height
-			NSLog("[DockWidget] widget height: %.1f scrubber: %.1f itemSize: %.1f",
-				  self.stackView.bounds.height, self.dockScrubber.frame.height, Constants.dockItemSize.height)
-			self.dockScrubber.scrubberLayout = self.makeDockLayout()
 			self.dockScrubber.reloadData()
 		}
 	}
@@ -235,7 +228,6 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 	}
 	
 	@objc private func deepReload(_ notification: NSNotification?) {
-		NSLog("[DockWidget][MEM] deepReload (recreate repository: %@). RSS: %d MB", notification == nil ? "no" : "yes", pockMemoryFootprintMB())
 		self.dockItems.removeAll()
 		self.persistentItems.removeAll()
 		self.cachedDockItemViews.removeAll()
@@ -247,7 +239,6 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 			return
 		}
 		self.dockRepository = DockRepository(delegate: self)
-		print("[DockWidget]: DEEP RELOAD")
 	}
 	
 	/// Configure stack view
@@ -468,7 +459,7 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 				}
 				return true
 			}catch {
-				print("[DockWidget][mv] Error: \(error.localizedDescription)")
+				NSLog("[DockWidget]: Move to trash error: \(error.localizedDescription)")
 				NSSound.beep()
 				return false
 			}

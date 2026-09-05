@@ -52,7 +52,6 @@ class DockRepository {
 	
 	/// Deinit
 	deinit {
-		NSLog("[DockWidget][MEM] DockRepository deinit. RSS: %d MB", pockMemoryFootprintMB())
 		self.notificationBadgeRefreshTimer?.invalidate()
 		self.unregisterFromEventsAndNotifications()
 		dockFolderRepository = nil
