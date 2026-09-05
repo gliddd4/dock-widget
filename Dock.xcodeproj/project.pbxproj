@@ -20,9 +20,6 @@
 		34D4A1BF246DE4FA005FA975 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 34D4A1B7246DE4FA005FA975 /* Localizable.strings */; };
 		34DF322F246DCCE8009B46B9 /* DockItemView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34DF3210246DCCE7009B46B9 /* DockItemView.swift */; };
 		34DF3230246DCCE8009B46B9 /* DockWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34DF3211246DCCE7009B46B9 /* DockWidget.swift */; };
-		34DF3231246DCCE8009B46B9 /* AppExposeItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34DF3213246DCCE7009B46B9 /* AppExposeItem.swift */; };
-		34DF3232246DCCE8009B46B9 /* AppExposeController.xib in Resources */ = {isa = PBXBuildFile; fileRef = 34DF3215246DCCE7009B46B9 /* AppExposeController.xib */; };
-		34DF3233246DCCE8009B46B9 /* AppExposeController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34DF3216246DCCE7009B46B9 /* AppExposeController.swift */; };
 		34DF3234246DCCE8009B46B9 /* FileMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34DF3217246DCCE8009B46B9 /* FileMonitor.swift */; };
 		34DF3235246DCCE8009B46B9 /* Constants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34DF3218246DCCE8009B46B9 /* Constants.swift */; };
 		34DF3236246DCCE8009B46B9 /* FileEvent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34DF321A246DCCE8009B46B9 /* FileEvent.swift */; };
@@ -67,9 +64,6 @@
 		34D4A1BD246DE4FA005FA975 /* tr */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = tr; path = tr.lproj/Localizable.strings; sourceTree = "<group>"; };
 		34DF3210246DCCE7009B46B9 /* DockItemView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = DockItemView.swift; sourceTree = "<group>"; };
 		34DF3211246DCCE7009B46B9 /* DockWidget.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = DockWidget.swift; sourceTree = "<group>"; };
-		34DF3213246DCCE7009B46B9 /* AppExposeItem.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AppExposeItem.swift; sourceTree = "<group>"; };
-		34DF3215246DCCE7009B46B9 /* AppExposeController.xib */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.xib; path = AppExposeController.xib; sourceTree = "<group>"; };
-		34DF3216246DCCE7009B46B9 /* AppExposeController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AppExposeController.swift; sourceTree = "<group>"; };
 		34DF3217246DCCE8009B46B9 /* FileMonitor.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FileMonitor.swift; sourceTree = "<group>"; };
 		34DF3218246DCCE8009B46B9 /* Constants.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Constants.swift; sourceTree = "<group>"; };
 		34DF321A246DCCE8009B46B9 /* FileEvent.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FileEvent.swift; sourceTree = "<group>"; };
@@ -173,7 +167,6 @@
 			children = (
 				34DF3219246DCCE8009B46B9 /* Witness */,
 				34DF321E246DCCE8009B46B9 /* DockFolder */,
-				34DF3212246DCCE7009B46B9 /* AppExpose */,
 				34DF3218246DCCE8009B46B9 /* Constants.swift */,
 				34DF322E246DCCE8009B46B9 /* DockItem.swift */,
 				34DF3210246DCCE7009B46B9 /* DockItemView.swift */,
@@ -197,24 +190,6 @@
 				34D4A1B7246DE4FA005FA975 /* Localizable.strings */,
 			);
 			path = Localisations;
-			sourceTree = "<group>";
-		};
-		34DF3212246DCCE7009B46B9 /* AppExpose */ = {
-			isa = PBXGroup;
-			children = (
-				34DF3214246DCCE7009B46B9 /* AppExposeController */,
-				34DF3213246DCCE7009B46B9 /* AppExposeItem.swift */,
-			);
-			path = AppExpose;
-			sourceTree = "<group>";
-		};
-		34DF3214246DCCE7009B46B9 /* AppExposeController */ = {
-			isa = PBXGroup;
-			children = (
-				34DF3215246DCCE7009B46B9 /* AppExposeController.xib */,
-				34DF3216246DCCE7009B46B9 /* AppExposeController.swift */,
-			);
-			path = AppExposeController;
 			sourceTree = "<group>";
 		};
 		34DF3219246DCCE8009B46B9 /* Witness */ = {
@@ -385,7 +360,6 @@
 				34D4A1BF246DE4FA005FA975 /* Localizable.strings in Resources */,
 				34291B62263DFE1000768B08 /* Media.xcassets in Resources */,
 				34DF323C246DCCE8009B46B9 /* DockFolderController.xib in Resources */,
-				34DF3232246DCCE8009B46B9 /* AppExposeController.xib in Resources */,
 				34DF3255246DCECC009B46B9 /* DockWidgetPreferencePane.xib in Resources */,
 				34DF323A246DCCE8009B46B9 /* DockFolderController.strings in Resources */,
 			);
@@ -467,13 +441,11 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				34DF3231246DCCE8009B46B9 /* AppExposeItem.swift in Sources */,
 				34C64DAD25699186006CB7F4 /* DockRepository.swift in Sources */,
 				C10000010000000000000001 /* DockScrubberLayout.swift in Sources */,
 				C10000010000000000000003 /* OptionNumberHotKeys.swift in Sources */,
 				C20000010000000000000003 /* MouseScrollController.swift in Sources */,
 				C20000010000000000000005 /* MediaController.swift in Sources */,
-				34DF3233246DCCE8009B46B9 /* AppExposeController.swift in Sources */,
 				34DF3237246DCCE8009B46B9 /* EventStream.swift in Sources */,
 				34DF3234246DCCE8009B46B9 /* FileMonitor.swift in Sources */,
 				34DF3230246DCCE8009B46B9 /* DockWidget.swift in Sources */,

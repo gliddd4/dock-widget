@@ -511,24 +511,4 @@ extension DockRepository {
 		return app.activate(options: [.activateAllWindows, .activateIgnoringOtherApps])
 	}
 	
-	private func activateExpose(with windows: [AppExposeItem], app: NSRunningApplication) -> Bool {
-		guard windows.count > 0 else {
-			return false
-		}
-		let settings: AppExposeSettings = Preferences[.appExposeSettings]
-		guard settings == .always || (settings == .ifNeeded && windows.count > 1) else {
-			PockDockHelper().activate(windows.first, in: app)
-			return false
-		}
-		openExpose(with: windows, for: app)
-		return true
-	}
-	
-	public func openExpose(with windows: [AppExposeItem], for app: NSRunningApplication) {
-		let controller: AppExposeController = AppExposeController.load()
-		controller.set(app: app)
-		controller.set(elements: windows)
-		controller.pushOnMainNavigationController()
-	}
-	
 }

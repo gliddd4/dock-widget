@@ -57,22 +57,9 @@ enum NotificationBadgeRefreshRateKeys: Double, Codable, CaseIterable {
     }
 }
 
-enum AppExposeSettings: String, Codable, CaseIterable {
-    case never, ifNeeded, always
-    
-    var title: String {
-        switch self {
-        case .never: return "Never".localized
-        case .ifNeeded: return "More Than 1 Window".localized
-        case .always: return "Always".localized
-        }
-    }
-}
-
 internal struct Preferences {
     internal enum Keys: String {
         case notificationBadgeRefreshInterval
-        case appExposeSettings
         case itemSpacing
         case hideSystemDock
         case hideFinder
@@ -88,14 +75,9 @@ internal struct Preferences {
                 if T.self == NotificationBadgeRefreshRateKeys.self, let raw = UserDefaults.standard.value(forKey: key.rawValue) as? Double {
                     return (NotificationBadgeRefreshRateKeys(rawValue: raw) ?? .tenSeconds) as! T
                 }
-                if T.self == AppExposeSettings.self, let raw = UserDefaults.standard.value(forKey: key.rawValue) as? String {
-                    return (AppExposeSettings(rawValue: raw) ?? .ifNeeded) as! T
-                }
                 switch key {
                 case .notificationBadgeRefreshInterval:
                     return NotificationBadgeRefreshRateKeys.tenSeconds as! T
-                case .appExposeSettings:
-                    return AppExposeSettings.ifNeeded as! T
                 case .itemSpacing:
                     return CGFloat(8) as! T
                 case .hideSystemDock:
@@ -122,7 +104,6 @@ internal struct Preferences {
     }
     static func reset() {
         Preferences[.notificationBadgeRefreshInterval] = 10
-        Preferences[.appExposeSettings] = "ifNeeded"
         Preferences[.itemSpacing] = CGFloat(8)
         Preferences[.hideSystemDock] = true
         Preferences[.hideFinder] = false
