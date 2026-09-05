@@ -13,7 +13,6 @@ class DockWidgetPreferencePane: NSViewController, PKWidgetPreference {
     
     /// UI
     @IBOutlet weak var notificationBadgeRefreshRatePicker: NSPopUpButton!
-    @IBOutlet weak var appExposeSettingsPicker:            NSPopUpButton!
 	
 	@IBOutlet weak var hideSystemDock: 	  NSButton!
 	@IBOutlet weak var disableSystemDock: NSButton!
@@ -63,11 +62,6 @@ class DockWidgetPreferencePane: NSViewController, PKWidgetPreference {
         self.notificationBadgeRefreshRatePicker.removeAllItems()
         self.notificationBadgeRefreshRatePicker.addItems(withTitles: NotificationBadgeRefreshRateKeys.allCases.map({ $0.toString() }))
         self.notificationBadgeRefreshRatePicker.selectItem(withTitle: refreshInterval.toString())
-		
-		let appExposeSetting: AppExposeSettings = Preferences[.appExposeSettings]
-        self.appExposeSettingsPicker.removeAllItems()
-        self.appExposeSettingsPicker.addItems(withTitles: AppExposeSettings.allCases.map { $0.title })
-        self.appExposeSettingsPicker.selectItem(withTitle: appExposeSetting.title)
     }
     
     private func setupCheckboxes() {
@@ -88,10 +82,6 @@ class DockWidgetPreferencePane: NSViewController, PKWidgetPreference {
     @IBAction private func didSelectNotificationBadgeRefreshRate(_: NSButton) {
 		Preferences[.notificationBadgeRefreshInterval] = NotificationBadgeRefreshRateKeys.allCases[notificationBadgeRefreshRatePicker.indexOfSelectedItem].rawValue
         NSWorkspace.shared.notificationCenter.post(name: .didChangeNotificationBadgeRefreshRate, object: nil)
-    }
-
-    @IBAction func didSelectAppExposeSettings(_: NSButton) {
-		Preferences[.appExposeSettings] = AppExposeSettings.allCases[appExposeSettingsPicker.indexOfSelectedItem].rawValue
     }
     
 	@IBAction private func didChangeHideSystemDockValue(button: NSButton) {
