@@ -41,6 +41,14 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 		}
 	}
 	
+	/// Traffic lights (close / minimize / zoom) shown to the left of the dock.
+	/// Touch only: they are never part of `dockItems`, so the Option+1..9
+	/// app-switch hotkeys cannot reach them.
+	private var trafficLights:               NSStackView! = NSStackView(frame: .zero)
+	private var trafficLightButtons:         [TrafficLightButton] = []
+	private var trafficLightSizeConstraints: [NSLayoutConstraint] = []
+	private var trafficLightHovered:         TrafficLightButton?
+
 	/// Data
 	private var dockItems:       [DockItem] = []
 	private var persistentItems: [DockItem] = []
@@ -94,6 +102,8 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 	
 	func initialize() {
 		self.configureStackView()
+		/// Added before the dock scrubber so the traffic lights sit to its left.
+		self.configureTrafficLights()
 		self.configureDockScrubber()
 		self.configureSeparator()
 		self.configurePersistentScrubber()
@@ -186,6 +196,8 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 	private func adjustItemHeight(by delta: CGFloat) {
 		let newHeight = min(max(currentItemHeight + delta, 20), 48)
 		currentItemHeight = newHeight
+		/// The traffic lights track the icon size so they stay the same size
+		updateTrafficLightSize()
 		dockScrubber.frame.size.height = newHeight
 		dockScrubber.scrubberLayout = makeDockLayout()
 		dockScrubber.reloadData()
@@ -348,6 +360,104 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 		return layout
 	}
 
+	/// Three squircles the size of a dock icon, in the classic window-control
+	/// colours, sitting to the left of the dock. Touch only by design: they are
+	/// not dock items, so Option+1..9 skips straight past them.
+	private func configureTrafficLights() {
+		guard trafficLightButtons.isEmpty else {
+			return
+		}
+		trafficLights.orientation = .horizontal
+		trafficLights.alignment   = .centerY
+		trafficLights.spacing     = 6
+		/// #ff6057 close, #febd30 minimize, #2ac840 zoom
+		let specs: [(NSColor, TrafficLightAction)] = [
+			(NSColor(srgbRed: 1.000, green: 0.376, blue: 0.341, alpha: 1), .close),
+			(NSColor(srgbRed: 0.996, green: 0.741, blue: 0.188, alpha: 1), .minimize),
+			(NSColor(srgbRed: 0.165, green: 0.784, blue: 0.251, alpha: 1), .zoom)
+		]
+		for (color, action) in specs {
+			let button = TrafficLightButton(color: color, action: action)
+			trafficLightButtons.append(button)
+			trafficLights.addArrangedSubview(button)
+		}
+		stackView.addArrangedSubview(trafficLights)
+		updateTrafficLightSize()
+	}
+
+	/// Keep the traffic lights exactly the size of a dock icon, following the
+	/// Option+[ / ] size calibration.
+	private func updateTrafficLightSize() {
+		guard trafficLightButtons.isEmpty == false else {
+			return
+		}
+		let side = currentItemHeight
+		if trafficLightSizeConstraints.isEmpty {
+			trafficLightSizeConstraints = trafficLightButtons.flatMap {
+				[$0.width(side), $0.height(side)]
+			}
+		}else {
+			trafficLightSizeConstraints.forEach { $0.constant = side }
+		}
+		trafficLightButtons.forEach {
+			$0.cornerRadius = side * TrafficLightButton.cornerRadiusRatio
+		}
+	}
+
+	/// The traffic-light button under `location`, if any.
+	private func trafficLightButton(at location: NSPoint, in view: NSView) -> TrafficLightButton? {
+		return trafficLightButtons.first {
+			$0.convert($0.bounds, to: view).contains(location)
+		}
+	}
+
+	private func updateTrafficLightHover(_ location: NSPoint?, in view: NSView) {
+		let hovered = location.flatMap { trafficLightButton(at: $0, in: view) }
+		guard hovered !== trafficLightHovered else {
+			return
+		}
+		trafficLightHovered?.set(isMouseOver: false)
+		hovered?.set(isMouseOver: true)
+		trafficLightHovered = hovered
+	}
+
+	/// Drive the frontmost app's window the way its own traffic lights would, by
+	/// pressing that window's Accessibility button.
+	private func perform(_ action: TrafficLightAction) {
+		guard let app = NSWorkspace.shared.frontmostApplication else {
+			return
+		}
+		let appElement = AXUIElementCreateApplication(app.processIdentifier)
+		guard let window = frontWindow(appElement) else {
+			NSLog("[DockWidget]: Traffic light: no window for \(app.bundleIdentifier ?? "frontmost app")")
+			return
+		}
+		let attribute: CFString
+		switch action {
+		case .close:    attribute = kAXCloseButtonAttribute as CFString
+		case .minimize: attribute = kAXMinimizeButtonAttribute as CFString
+		case .zoom:     attribute = kAXZoomButtonAttribute as CFString
+		}
+		guard let value = copyAttribute(window, attribute),
+			  CFGetTypeID(value) == AXUIElementGetTypeID() else {
+			NSLog("[DockWidget]: Traffic light: no \(attribute as String) on the frontmost window")
+			return
+		}
+		AXUIElementPerformAction(value as! AXUIElement, kAXPressAction as CFString)
+	}
+
+	/// The frontmost app's focused window, falling back to its first window.
+	private func frontWindow(_ appElement: AXUIElement) -> AXUIElement? {
+		if let value = copyAttribute(appElement, kAXFocusedWindowAttribute as CFString),
+		   CFGetTypeID(value) == AXUIElementGetTypeID() {
+			return value as! AXUIElement
+		}
+		if let windows = copyAttribute(appElement, kAXWindowsAttribute as CFString) as? [AXUIElement] {
+			return windows.first
+		}
+		return nil
+	}
+
 	/// Configure dock scrubber
 	private func configureDockScrubber() {
 		dockScrubber.dataSource = self
@@ -392,6 +502,7 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 	
 	func screenEdgeController(_ controller: PKScreenEdgeController, mouseExitedAtLocation location: NSPoint, in view: NSView) {
 		itemViewWithMouseOver?.set(isMouseOver: false)
+		updateTrafficLightHover(nil, in: view)
 	}
 	
 	func screenEdgeController(_ controller: PKScreenEdgeController, mouseMovedAtLocation location: NSPoint, in view: NSView) {
@@ -408,6 +519,12 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 	
 	func screenEdgeController(_ controller: PKScreenEdgeController, mouseClickAtLocation location: NSPoint, in view: NSView) {
 		itemViewWithMouseOver?.set(isMouseOver: false)
+		/// Traffic lights are hit-tested first: they sit outside the dock, so a
+		/// tap on one must never fall through to an app launch.
+		if let button = trafficLightButton(at: location, in: view) {
+			perform(button.action)
+			return
+		}
 		launchItem(item(at: location, in: view))
 	}
 	
@@ -469,6 +586,7 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 	}
 	
 	private func updateCursorLocation(_ location: NSPoint?, in view: NSView) {
+		updateTrafficLightHover(location, in: view)
 		itemViewWithMouseOver?.set(isMouseOver: false)
 		itemViewWithMouseOver = nil
 		guard let location = location else {
@@ -498,7 +616,7 @@ extension DockWidget: DockDelegate {
 						}
 					}else {
 						itemView.set(isRunning:   effectiveIsRunning(item))
-						itemView.set(isFrontmost: self.frontmostIndex.map { self.dockItems[$0].diffId } == item.diffId)
+						itemView.set(isFrontmost: self.frontmostDiffId == item.diffId)
 						itemView.set(isLaunching: item.isLaunching)
 						self.dockScrubber.reloadItems(at: IndexSet(integer: currentIndex))
 					}
@@ -539,23 +657,22 @@ extension DockWidget: DockDelegate {
 			}
 			/// Resolve the item's *current* index by identity — the repository's
 			/// `index` refers to its (un-reordered) dock order, which diverges from
-			/// our running-first ordering. Using that stale index highlights the wrong
+			/// our Dock ordering. Using that stale index highlights the wrong
 			/// item and reveals the wrong name.
 			guard let currentIndex = self.dockItems.firstIndex(where: { $0.diffId == item.diffId }) else {
 				return
 			}
-			if activated {
-				self.applyFrontmost(currentIndex)
-			}else {
-				/// Deactivated: clear the highlight if this was the frontmost item
-				if self.frontmostIndex == currentIndex {
-					self.applyFrontmost(nil)
-				}
+			/// Only an activation moves the highlight. Handling the matching
+			/// deactivation as well collapsed the old name and then re-revealed
+			/// the new one, so every app switch became a two-step shuffle.
+			guard activated else {
+				return
 			}
+			self.applyFrontmost(currentIndex)
+			/// Deliberately no scroll-to-centre. The dock is only about ten items
+			/// wide and always fits the bar, so re-centring the active app on every
+			/// switch slid the other icons around for no reason.
 			self.relayoutScrubber()
-			if let index = self.frontmostIndex {
-				self.dockScrubber.animator().scrollItem(at: index, to: .center)
-			}
 		}
 	}
 	
@@ -615,7 +732,7 @@ extension DockWidget: DockDelegate {
 		view.set(name:        item.name)
 		view.set(hasBadge:    item.hasBadge)
 		view.set(isRunning:   effectiveIsRunning(item))
-		view.set(isFrontmost: frontmostIndex.map { dockItems[$0].diffId } == item.diffId)
+		view.set(isFrontmost: frontmostDiffId == item.diffId)
 		return view
 	}
 
@@ -643,13 +760,19 @@ extension DockWidget: DockDelegate {
 			let rhsRank = rank(rhs.element)
 			return lhsRank == rhsRank ? lhs.offset < rhs.offset : lhsRank < rhsRank
 		}.map { $0.element }
+		/// Keep the highlight on the same app, and drop it when that app is gone.
+		/// A stale index would otherwise highlight the wrong icon, or index out
+		/// of bounds after a removal.
+		if let index = frontmostIndex {
+			if index >= 0, index < dockItems.count,
+			   let remapped = reordered.firstIndex(where: { $0.diffId == dockItems[index].diffId }) {
+				frontmostIndex = remapped
+			}else {
+				applyFrontmost(nil)
+			}
+		}
 		guard reordered != dockItems else {
 			return
-		}
-		/// Remap frontmostIndex so it follows the same app after reordering
-		if let frontmostIndex = frontmostIndex, frontmostIndex < dockItems.count {
-			let frontmostDiffId = dockItems[frontmostIndex].diffId
-			self.frontmostIndex = reordered.firstIndex(where: { $0.diffId == frontmostDiffId })
 		}
 		dockItems = reordered
 		relayoutScrubber()
@@ -689,6 +812,15 @@ extension DockWidget: DockDelegate {
 			dockScrubber.reloadItems(at: IndexSet(integer: index))
 		}
 		applyDockOrder()
+	}
+
+	/// The highlighted item's diffId, or nil when the tracked index is stale.
+	/// Reading `dockItems[frontmostIndex]` directly could trap after a removal.
+	private var frontmostDiffId: Int? {
+		guard let index = frontmostIndex, index >= 0, index < dockItems.count else {
+			return nil
+		}
+		return dockItems[index].diffId
 	}
 
 	/// Single source of truth for the frontmost highlight: clears every other
@@ -750,9 +882,7 @@ extension DockWidget: NSScrubberDelegate {
 		/// restore it. Otherwise just bring it forward normally.
 		/// Prefer the real frontmost app over the tracked index so the toggle
 		/// stays correct even when index tracking drifts (reorders/removals).
-		let indexIsFrontmost = frontmostIndex.map { index in
-			index < dockItems.count ? dockItems[index].diffId == item.diffId : false
-		} ?? false
+		let indexIsFrontmost = frontmostDiffId == item.diffId
 		let appIsFrontmost = item.bundleIdentifier != nil &&
 			NSWorkspace.shared.frontmostApplication?.bundleIdentifier == item.bundleIdentifier
 		let isFrontmost = indexIsFrontmost || appIsFrontmost

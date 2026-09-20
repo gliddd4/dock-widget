@@ -501,8 +501,22 @@ extension DockRepository {
 				dockFolderRepository?.push(URL(string: NSHomeDirectory())!)
 				returnable = true
 			}else {
-				/// Launch app
-				returnable = NSWorkspace.shared.launchApplication(withBundleIdentifier: bundleIdentifier, options: [NSWorkspace.LaunchOptions.default], additionalEventParamDescriptor: nil, launchIdentifier: nil)
+				/// Launch the app. `NSWorkspace.launchApplication(withBundleIdentifier:)`
+				/// is deprecated and can silently do nothing on current macOS, which
+				/// left closed dock apps unopenable. Resolve the bundle URL and open
+				/// that instead, falling back to the old call if it is not found.
+				if let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleIdentifier) {
+					let configuration = NSWorkspace.OpenConfiguration()
+					configuration.activates = true
+					NSWorkspace.shared.openApplication(at: appURL, configuration: configuration) { _, error in
+						if let error = error {
+							NSLog("[DockWidget]: Failed to launch \(bundleIdentifier): \(error.localizedDescription)")
+						}
+					}
+					returnable = true
+				}else {
+					returnable = NSWorkspace.shared.launchApplication(withBundleIdentifier: bundleIdentifier, options: [NSWorkspace.LaunchOptions.default], additionalEventParamDescriptor: nil, launchIdentifier: nil)
+				}
 			}
 		}
 		/// Return status

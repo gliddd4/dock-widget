@@ -187,3 +187,51 @@ class DockItemView: NSScrubberItemView {
 // `isAnimating` had been cleared, a stopped item could keep bouncing on its
 // own. Dock items must only ever slide horizontally, so `isLaunching` is now
 // tracked without any motion.
+
+/// What a traffic-light button does to the frontmost window.
+enum TrafficLightAction {
+	case close
+	case minimize
+	case zoom
+}
+
+/// A squircle button sitting to the left of the dock, styled like one of the
+/// macOS window controls. These are touch-only: they are deliberately kept out
+/// of `dockItems`, so the Option+1..9 app-switch hotkeys can never select them.
+final class TrafficLightButton: NSView {
+
+	/// macOS app icons are continuous-corner rounded squares; this ratio is the
+	/// one the system uses, so a button of the dock icon's size matches its shape.
+	static let cornerRadiusRatio: CGFloat = 0.2237
+
+	let action: TrafficLightAction
+
+	init(color: NSColor, action: TrafficLightAction) {
+		self.action = action
+		super.init(frame: NSRect(origin: .zero, size: Constants.dockItemSize))
+		self.wantsLayer = true
+		self.layer?.backgroundColor = color.cgColor
+		self.cornerRadius = Constants.dockItemSize.height * TrafficLightButton.cornerRadiusRatio
+	}
+
+	required init?(coder decoder: NSCoder) {
+		fatalError("init(coder:) has not been implemented")
+	}
+
+	/// Continuous corner curve is what makes it a squircle rather than a plain
+	/// rounded rect, which is what the dock icons use.
+	var cornerRadius: CGFloat = 0 {
+		didSet {
+			layer?.cornerCurve  = .continuous
+			layer?.cornerRadius = cornerRadius
+		}
+	}
+
+	/// A light ring on hover, so the Touch Bar gives some feedback that the
+	/// button is touchable.
+	func set(isMouseOver: Bool) {
+		layer?.borderWidth = isMouseOver ? 2 : 0
+		layer?.borderColor = NSColor.white.withAlphaComponent(0.85).cgColor
+	}
+
+}
