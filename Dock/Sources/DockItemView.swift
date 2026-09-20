@@ -189,18 +189,10 @@ class DockItemView: NSScrubberItemView {
 // tracked without any motion.
 
 /// What a traffic-light button does to the frontmost window.
-enum TrafficLightAction: CustomStringConvertible {
+enum TrafficLightAction {
 	case close
 	case minimize
 	case zoom
-
-	var description: String {
-		switch self {
-		case .close:    return "close"
-		case .minimize: return "minimize"
-		case .zoom:     return "zoom"
-		}
-	}
 }
 
 /// A squircle button sitting to the left of the dock, styled like one of the
