@@ -44,10 +44,8 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 	/// Traffic lights (close / minimize / zoom) shown to the left of the dock.
 	/// Touch only: they are never part of `dockItems`, so the Option+1..9
 	/// app-switch hotkeys cannot reach them.
-	private var trafficLights:               NSStackView! = NSStackView(frame: .zero)
-	private var trafficLightButtons:         [TrafficLightButton] = []
-	private var trafficLightSizeConstraints: [NSLayoutConstraint] = []
-	private var trafficLightHovered:         TrafficLightButton?
+	private var trafficLights:       TrafficLightsView! = TrafficLightsView(frame: .zero)
+	private var trafficLightHovered: TrafficLightButton?
 
 	/// Data
 	private var dockItems:       [DockItem] = []
@@ -364,12 +362,9 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 	/// colours, sitting to the left of the dock. Touch only by design: they are
 	/// not dock items, so Option+1..9 skips straight past them.
 	private func configureTrafficLights() {
-		guard trafficLightButtons.isEmpty else {
+		guard trafficLights.buttons.isEmpty else {
 			return
 		}
-		trafficLights.orientation = .horizontal
-		trafficLights.alignment   = .centerY
-		trafficLights.spacing     = 6
 		/// #ff6057 close, #febd30 minimize, #2ac840 zoom
 		let specs: [(NSColor, TrafficLightAction)] = [
 			(NSColor(srgbRed: 1.000, green: 0.376, blue: 0.341, alpha: 1), .close),
@@ -377,10 +372,11 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 			(NSColor(srgbRed: 0.165, green: 0.784, blue: 0.251, alpha: 1), .zoom)
 		]
 		for (color, action) in specs {
-			let button = TrafficLightButton(color: color, action: action)
-			trafficLightButtons.append(button)
-			trafficLights.addArrangedSubview(button)
+			trafficLights.add(TrafficLightButton(color: color, action: action))
 		}
+		/// The container takes the bar's height and lays its buttons out itself,
+		/// so it never raises the widget view's minimum height.
+		trafficLights.heightAnchor.constraint(equalTo: stackView.heightAnchor).isActive = true
 		stackView.addArrangedSubview(trafficLights)
 		updateTrafficLightSize()
 	}
@@ -388,25 +384,15 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 	/// Keep the traffic lights exactly the size of a dock icon, following the
 	/// Option+[ / ] size calibration.
 	private func updateTrafficLightSize() {
-		guard trafficLightButtons.isEmpty == false else {
+		guard trafficLights.buttons.isEmpty == false else {
 			return
 		}
-		let side = currentItemHeight
-		if trafficLightSizeConstraints.isEmpty {
-			trafficLightSizeConstraints = trafficLightButtons.flatMap {
-				[$0.width(side), $0.height(side)]
-			}
-		}else {
-			trafficLightSizeConstraints.forEach { $0.constant = side }
-		}
-		trafficLightButtons.forEach {
-			$0.cornerRadius = side * TrafficLightButton.cornerRadiusRatio
-		}
+		trafficLights.side = currentItemHeight
 	}
 
 	/// The traffic-light button under `location`, if any.
 	private func trafficLightButton(at location: NSPoint, in view: NSView) -> TrafficLightButton? {
-		return trafficLightButtons.first {
+		return trafficLights.buttons.first {
 			$0.convert($0.bounds, to: view).contains(location)
 		}
 	}

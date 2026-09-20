@@ -235,3 +235,62 @@ final class TrafficLightButton: NSView {
 	}
 
 }
+
+/// Holds the traffic lights to the left of the dock.
+///
+/// This deliberately reports **no intrinsic height** and positions its buttons
+/// by hand, the same way `NSScrubber` handles the dock icons. A required height
+/// constraint on the buttons would become the widget view's minimum height, and
+/// since the buttons are a dock icon tall (taller than the Touch Bar) the view
+/// would grow past the bar and clip the top of everything. Letting the buttons
+/// overflow a container that is exactly the bar's height keeps the geometry
+/// identical to the dock icons: a dock icon tall, clipped top and bottom by the
+/// bar in exactly the same way.
+final class TrafficLightsView: NSView {
+
+	/// Gap between buttons.
+	var spacing: CGFloat = 6
+
+	/// Side of one button — the dock icon size, following the size calibration.
+	var side: CGFloat = Constants.dockItemSize.height {
+		didSet {
+			buttons.forEach { $0.cornerRadius = side * TrafficLightButton.cornerRadiusRatio }
+			invalidateIntrinsicContentSize()
+			needsLayout = true
+		}
+	}
+
+	private(set) var buttons: [TrafficLightButton] = []
+
+	func add(_ button: TrafficLightButton) {
+		buttons.append(button)
+		addSubview(button)
+		invalidateIntrinsicContentSize()
+		needsLayout = true
+	}
+
+	/// Width is intrinsic so the stack can allocate space; height is not, so the
+	/// stack never sizes itself from these buttons.
+	override var intrinsicContentSize: NSSize {
+		let count = CGFloat(buttons.count)
+		guard count > 0 else {
+			return NSSize(width: 0, height: NSView.noIntrinsicMetric)
+		}
+		return NSSize(width: count * side + (count - 1) * spacing,
+					  height: NSView.noIntrinsicMetric)
+	}
+
+	override func layout() {
+		super.layout()
+		guard buttons.isEmpty == false else {
+			return
+		}
+		var x = (bounds.width - intrinsicContentSize.width) / 2
+		let y = (bounds.height - side) / 2
+		for button in buttons {
+			button.frame = NSRect(x: x, y: y, width: side, height: side)
+			x += side + spacing
+		}
+	}
+
+}
