@@ -227,6 +227,10 @@ final class TrafficLightButton: NSView {
 
 	let action: TrafficLightAction
 
+	/// Called when the button is tapped. The widget owns the window-driving code,
+	/// so it supplies this rather than the button doing the work itself.
+	var onTap: (() -> Void)?
+
 	init(color: NSColor, action: TrafficLightAction) {
 		self.action = action
 		let side = TrafficLightButton.defaultSide
@@ -234,6 +238,20 @@ final class TrafficLightButton: NSView {
 		self.wantsLayer = true
 		self.layer?.backgroundColor = color.cgColor
 		self.cornerRadius = side * TrafficLightButton.cornerRadiusRatio
+		/// A Touch Bar touch is a **direct** touch, and a view only receives
+		/// direct touches if a gesture recogniser opts in through
+		/// `allowedTouchTypes` — the default is indirect only, which is why a
+		/// plain `NSView` (and any hit-testing of it) is completely inert on the
+		/// Touch Bar. This is exactly how PockKit's own Touch Bar button,
+		/// `PKButton`, makes itself tappable, and it is why the dock itself works:
+		/// `NSScrubber` handles direct touches for its items internally.
+		let click = NSClickGestureRecognizer(target: self, action: #selector(handleTap))
+		click.allowedTouchTypes = .direct
+		addGestureRecognizer(click)
+	}
+
+	@objc private func handleTap() {
+		onTap?()
 	}
 
 	required init?(coder decoder: NSCoder) {

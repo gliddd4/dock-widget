@@ -387,7 +387,16 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 			(NSColor(srgbRed: 0.165, green: 0.784, blue: 0.251, alpha: 1), .zoom)
 		]
 		for (color, action) in specs {
-			trafficLights.add(TrafficLightButton(color: color, action: action))
+			let button = TrafficLightButton(color: color, action: action)
+			/// Taps arrive on the button itself (see its gesture recogniser). The
+			/// screen-edge handler below is the separate *mouse* path — Pock's
+			/// screen-edge panel sits at the bottom of the display — and is kept
+			/// so the lights also respond to a click there.
+			button.onTap = { [weak self] in
+				self?.debugLog("touch on \(action)")
+				self?.perform(action)
+			}
+			trafficLights.add(button)
 		}
 		/// Add it to the stack *first*. Activating a constraint between two views
 		/// that share no common ancestor throws an exception, and because the
