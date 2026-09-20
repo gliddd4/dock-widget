@@ -46,6 +46,8 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 	/// app-switch hotkeys cannot reach them.
 	private var trafficLights:       TrafficLightsView! = TrafficLightsView(frame: .zero)
 	private var trafficLightHovered: TrafficLightButton?
+	/// Set once per launch so `debugLog` truncates the file it appends to.
+	private var didPrepareDebugLog:  Bool = false
 
 	/// Data
 	private var dockItems:       [DockItem] = []
@@ -453,12 +455,35 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 		let iconCentre = trafficLights.convert(NSPoint(x: 0, y: itemView.bounds.midY),
 											   from: itemView)
 		trafficLights.buttonCenterY = iconCentre.y
+		debugLog("alignment: lights \(NSStringFromRect(trafficLights.frame)) "
+				 + "bounds \(NSStringFromRect(trafficLights.bounds)) "
+				 + "buttonCenterY \(buttonCenterYForLog) "
+				 + "item \(NSStringFromRect(itemView.frame)) "
+				 + "scrubber \(NSStringFromRect(dockScrubber.frame)) "
+				 + "stack \(NSStringFromRect(stackView.bounds)) "
+				 + "AXtrusted \(AXIsProcessTrusted())")
+	}
+
+	/// `trafficLights.buttonCenterY` rendered for the debug log.
+	private var buttonCenterYForLog: String {
+		guard let value = trafficLights.buttonCenterY else { return "nil (bar centre)" }
+		return String(format: "%.2f", value)
 	}
 
 	/// The traffic-light button under `location`, if any.
+	///
+	/// Matched on the horizontal band **only**. The y a Touch Bar click reports
+	/// is not dependable: the dock's own hit test discards it and substitutes a
+	/// fixed mid-bar value (`NSView.subview(in:at:of:)` uses `y: 12`), and the
+	/// lights are laid out from the icons' centre, which need not sit in the
+	/// middle of whatever range the click reports. Requiring y to fall inside
+	/// the button rect made every tap on a light miss. An x-only test is
+	/// unambiguous here because the lights occupy the leftmost strip of the
+	/// widget and the dock starts to their right.
 	private func trafficLightButton(at location: NSPoint, in view: NSView) -> TrafficLightButton? {
 		return trafficLights.buttons.first {
-			$0.convert($0.bounds, to: view).contains(location)
+			let rect = $0.convert($0.bounds, to: view)
+			return location.x >= rect.minX && location.x <= rect.maxX
 		}
 	}
 
@@ -476,10 +501,12 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 	/// pressing that window's Accessibility button.
 	private func perform(_ action: TrafficLightAction) {
 		guard let app = NSWorkspace.shared.frontmostApplication else {
+			debugLog("  perform \(action): no frontmost application")
 			return
 		}
 		let appElement = AXUIElementCreateApplication(app.processIdentifier)
 		guard let window = frontWindow(appElement) else {
+			debugLog("  perform \(action): no window for \(app.bundleIdentifier ?? "?")")
 			NSLog("[DockWidget]: Traffic light: no window for \(app.bundleIdentifier ?? "frontmost app")")
 			return
 		}
@@ -491,10 +518,36 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 		}
 		guard let value = copyAttribute(window, attribute),
 			  CFGetTypeID(value) == AXUIElementGetTypeID() else {
+			debugLog("  perform \(action): no \(attribute as String) on \(app.bundleIdentifier ?? "?")")
 			NSLog("[DockWidget]: Traffic light: no \(attribute as String) on the frontmost window")
 			return
 		}
-		AXUIElementPerformAction(value as! AXUIElement, kAXPressAction as CFString)
+		let result = AXUIElementPerformAction(value as! AXUIElement, kAXPressAction as CFString)
+		debugLog("  perform \(action): \(app.bundleIdentifier ?? "?") trusted=\(AXIsProcessTrusted()) "
+				 + "AXPress result=\(result.rawValue)")
+	}
+
+	/// Append a line to `dockwidget-debug.log` beside the widget.
+	///
+	/// The traffic lights are the only part of this widget whose input path and
+	/// effect cannot be observed from outside Pock, and the unified log cannot be
+	/// read from a sandboxed shell (`log show` refuses to run), so failures are
+	/// recorded to a file instead. Truncated once per launch.
+	private func debugLog(_ message: String) {
+		let path = NSHomeDirectory() + "/Library/Application Support/Pock/dockwidget-debug.log"
+		let line = "[\(Date())] \(message)\n"
+		if didPrepareDebugLog == false {
+			didPrepareDebugLog = true
+			try? line.write(toFile: path, atomically: true, encoding: .utf8)
+			return
+		}
+		guard let handle = FileHandle(forWritingAtPath: path) else {
+			try? line.write(toFile: path, atomically: true, encoding: .utf8)
+			return
+		}
+		handle.seekToEndOfFile()
+		handle.write(Data(line.utf8))
+		handle.closeFile()
 	}
 
 	/// The frontmost app's focused window, falling back to its first window.
@@ -573,9 +626,13 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 		/// Traffic lights are hit-tested first: they sit outside the dock, so a
 		/// tap on one must never fall through to an app launch.
 		if let button = trafficLightButton(at: location, in: view) {
+			debugLog("tap at \(location) -> light \(button.action); "
+					 + "light rects \(trafficLights.buttons.map { NSStringFromRect($0.convert($0.bounds, to: view)) })")
 			perform(button.action)
 			return
 		}
+		debugLog("tap at \(location) -> no light; "
+				 + "light rects \(trafficLights.buttons.map { NSStringFromRect($0.convert($0.bounds, to: view)) })")
 		launchItem(item(at: location, in: view))
 	}
 	
