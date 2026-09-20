@@ -34,6 +34,11 @@ class Constants {
     /// Measured against Finder, Notes, TextEdit, Terminal, System Settings and
     /// Pock: every one reports 0.8047 of its canvas.
     static let dockIconArtworkRatio:    CGFloat = 824.0 / 1024.0
+    /// Width a dock item reserves beyond its own height. The icon view is square
+    /// and leading-aligned inside the item, so this shows up as slack after the
+    /// icon. `DockScrubberLayout` and the traffic-light spacing both need it, so
+    /// it lives here rather than being written out twice.
+    static let dockItemWidthPadding:    CGFloat = 2
     /// Calibrated vertical offset applied to the dock items (permanent default)
     static let dockItemYOffsetDefault:  CGFloat = -3
     /// UserDefaults key that overrides the dock item height (live calibration)

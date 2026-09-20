@@ -195,7 +195,7 @@ enum TrafficLightAction {
 	case zoom
 }
 
-/// A squircle button sitting to the left of the dock, styled like one of the
+/// A circular button sitting to the left of the dock, styled like one of the
 /// macOS window controls. These are touch-only: they are deliberately kept out
 /// of `dockItems`, so the Option+1..9 app-switch hotkeys can never select them.
 ///
@@ -206,12 +206,7 @@ enum TrafficLightAction {
 /// colour makes it look a quarter larger than the icons beside it.
 final class TrafficLightButton: NSView {
 
-	/// macOS app icons are continuous-corner rounded squares, and the ratio is
-	/// measured against the artwork, not the box, so applying it to the button's
-	/// visible side reproduces the icon's curve exactly.
-	static let cornerRadiusRatio: CGFloat = 0.2237
-
-	/// The visible side the button starts at, before the container lays it out.
+	/// The diameter the button starts at, before the container lays it out.
 	static var defaultSide: CGFloat {
 		return Constants.dockItemSize.height * Constants.dockIconArtworkRatio
 	}
@@ -224,15 +219,16 @@ final class TrafficLightButton: NSView {
 		super.init(frame: NSRect(x: 0, y: 0, width: side, height: side))
 		self.wantsLayer = true
 		self.layer?.backgroundColor = color.cgColor
-		self.cornerRadius = side * TrafficLightButton.cornerRadiusRatio
+		self.cornerRadius = side / 2
 	}
 
 	required init?(coder decoder: NSCoder) {
 		fatalError("init(coder:) has not been implemented")
 	}
 
-	/// Continuous corner curve is what makes it a squircle rather than a plain
-	/// rounded rect, which is what the dock icons use.
+	/// Corner radius is half the side, which makes the button a circle. The
+	/// continuous corner curve is kept because it is what the dock icons use,
+	/// and at a half-side radius it degenerates to an exact circle anyway.
 	var cornerRadius: CGFloat = 0 {
 		didSet {
 			layer?.cornerCurve  = .continuous
@@ -261,15 +257,23 @@ final class TrafficLightButton: NSView {
 /// bar in exactly the same way.
 final class TrafficLightsView: NSView {
 
-	/// Gap between buttons.
-	var spacing: CGFloat = 6
+	/// Gap between buttons, edge to edge. The caller sets this to the gap the eye
+	/// sees between two dock icons; it is not the dock's raw `itemSpacing`, which
+	/// is much smaller because each item also reserves icon-box padding.
+	var spacing: CGFloat = 0 {
+		didSet {
+			guard spacing != oldValue else { return }
+			invalidateIntrinsicContentSize()
+			needsLayout = true
+		}
+	}
 
-	/// Side of one button. This is the button's **visible** side, which the
+	/// Diameter of one button. This is the button's **visible** size, which the
 	/// caller sets to the dock icon's visible artwork size — see
 	/// `Constants.dockIconArtworkRatio` and the note on `TrafficLightButton`.
 	var side: CGFloat = TrafficLightButton.defaultSide {
 		didSet {
-			buttons.forEach { $0.cornerRadius = side * TrafficLightButton.cornerRadiusRatio }
+			buttons.forEach { $0.cornerRadius = side / 2 }
 			invalidateIntrinsicContentSize()
 			needsLayout = true
 		}

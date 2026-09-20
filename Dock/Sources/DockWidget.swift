@@ -353,7 +353,8 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 	/// Build a variable-width layout that gives the frontmost item room for its name
 	private func makeDockLayout() -> DockScrubberLayout {
 		let layout = DockScrubberLayout()
-		let itemSize = NSSize(width: currentItemHeight + 2, height: currentItemHeight)
+		let itemSize = NSSize(width: currentItemHeight + Constants.dockItemWidthPadding,
+							  height: currentItemHeight)
 		layout.itemSize    = itemSize
 		layout.itemSpacing = Preferences[.itemSpacing]
 		layout.itemYOffset = currentItemYOffset
@@ -396,8 +397,8 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 		updateTrafficLights()
 	}
 
-	/// Keep the traffic lights the same *apparent* size as a dock icon, and on
-	/// the same horizontal line as their centres.
+	/// Keep the traffic lights the same *apparent* size as a dock icon, on the
+	/// same horizontal line as their centres, and spaced the way the icons are.
 	///
 	/// Not the same box size: a button paints its whole frame, whereas an app
 	/// icon only paints 824/1024 of its box, so matching box sizes made the
@@ -407,8 +408,24 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 		guard trafficLights.buttons.isEmpty == false else {
 			return
 		}
-		trafficLights.side = currentItemHeight * Constants.dockIconArtworkRatio
+		trafficLights.side    = currentItemHeight * Constants.dockIconArtworkRatio
+		trafficLights.spacing = dockIconVisibleGap
 		syncTrafficLightAlignment()
+	}
+
+	/// The gap the eye actually sees between two neighbouring dock icons.
+	///
+	/// `DockScrubberLayout` gives each item `currentItemHeight + widthPadding` of
+	/// width and then `itemSpacing` between items. The icon view is square and
+	/// leading-aligned inside its item, so the artwork's leading and trailing
+	/// insets are equal and cancel: the visible gap is just the item pitch minus
+	/// the artwork width. That is what the traffic lights have to reproduce —
+	/// the raw `itemSpacing` preference is not it, and using it left the lights
+	/// visibly tighter together than the icons.
+	private var dockIconVisibleGap: CGFloat {
+		let itemWidth = currentItemHeight + Constants.dockItemWidthPadding
+		let artwork   = currentItemHeight * Constants.dockIconArtworkRatio
+		return itemWidth + Preferences[.itemSpacing] - artwork
 	}
 
 	/// Centre the lights on the dock icons vertically.
