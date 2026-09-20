@@ -275,12 +275,15 @@ final class TrafficLightsView: NSView {
 		}
 	}
 
-	/// Vertical nudge, kept in step with the dock items' own `itemYOffset` so
-	/// the lights sit on the same line as the icons rather than on the bar's
-	/// geometric centre. Both superviews are unflipped, so the sign is shared.
-	var yOffset: CGFloat = 0 {
+	/// Absolute y — in this view's own coordinate space — that the buttons'
+	/// centres must sit on. `nil` falls back to the view's own centre.
+	///
+	/// Stored as a position rather than a delta so it stays correct if the
+	/// container is ever resized; the caller measures it from a real dock item
+	/// view, which is the only reliable way to land on the icons' centre.
+	var buttonCenterY: CGFloat? {
 		didSet {
-			guard yOffset != oldValue else { return }
+			guard buttonCenterY != oldValue else { return }
 			needsLayout = true
 		}
 	}
@@ -311,7 +314,9 @@ final class TrafficLightsView: NSView {
 			return
 		}
 		var x = (bounds.width - intrinsicContentSize.width) / 2
-		let y = (bounds.height - side) / 2 + yOffset
+		/// Centre on the dock icons when we know where they are, otherwise on
+		/// the bar. Buttons are centred on `buttonCenterY`, not placed at it.
+		let y = (buttonCenterY ?? bounds.height / 2) - side / 2
 		for button in buttons {
 			button.frame = NSRect(x: x, y: y, width: side, height: side)
 			x += side + spacing

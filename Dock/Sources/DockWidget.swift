@@ -194,8 +194,6 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 	private func adjustItemHeight(by delta: CGFloat) {
 		let newHeight = min(max(currentItemHeight + delta, 20), 48)
 		currentItemHeight = newHeight
-		/// The traffic lights track the icon size so they stay the same size
-		updateTrafficLightSize()
 		dockScrubber.frame.size.height = newHeight
 		dockScrubber.scrubberLayout = makeDockLayout()
 		dockScrubber.reloadData()
@@ -203,16 +201,20 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 		/// so the icons actually grow with the taller item.
 		dockScrubber.layoutSubtreeIfNeeded()
 		cachedDockItemViews.forEach { $0.layoutSubtreeIfNeeded() }
+		/// Only now are the item frames final, so this is the point at which the
+		/// lights can be sized *and* measured onto the icons' new centre.
+		updateTrafficLights()
 	}
 
 	/// Move the dock items vertically by `delta` points within the bar.
 	private func adjustItemYOffset(by delta: CGFloat) {
 		let newOffset = max(min(currentItemYOffset + delta, 20), -20)
 		currentItemYOffset = newOffset
-		/// The lights ride the same baseline as the icons
-		updateTrafficLightSize()
 		dockScrubber.scrubberLayout = makeDockLayout()
 		dockScrubber.reloadData()
+		dockScrubber.layoutSubtreeIfNeeded()
+		/// The lights follow the icons' centre, wherever that now is.
+		updateTrafficLights()
 	}
 	
 	func viewDidAppear() {
@@ -222,6 +224,9 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 			guard let self = self else { return }
 			self.dockScrubber.frame.size.height = self.stackView.bounds.height
 			self.dockScrubber.reloadData()
+			/// The dock has real item frames by now, so the lights can finally
+			/// be measured onto the icons' centre.
+			self.syncTrafficLightAlignment()
 		}
 	}
 	
@@ -290,12 +295,17 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 		dockScrubber.scrubberLayout = makeDockLayout()
 		dockScrubber.reloadData()
 		guard animated else {
+			syncTrafficLightAlignment()
 			return
 		}
 		/// Wait a runloop tick so NSScrubber has applied the new frames,
 		/// then animate each view from its old frame to its current one.
 		DispatchQueue.main.async { [weak self] in
-			self?.animateItemSlide(from: oldFrames)
+			guard let self = self else { return }
+			self.animateItemSlide(from: oldFrames)
+			/// Item frames can move when items are added or removed, so keep
+			/// the lights measured onto them.
+			self.syncTrafficLightAlignment()
 		}
 	}
 
@@ -360,9 +370,9 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 		return layout
 	}
 
-	/// Three squircles the size of a dock icon, in the classic window-control
-	/// colours, sitting to the left of the dock. Touch only by design: they are
-	/// not dock items, so Option+1..9 skips straight past them.
+	/// Three squircles the apparent size of a dock icon, in the classic
+	/// window-control colours, sitting to the left of the dock. Touch only by
+	/// design: they are not dock items, so Option+1..9 skips straight past them.
 	private func configureTrafficLights() {
 		guard trafficLights.buttons.isEmpty else {
 			return
@@ -383,22 +393,49 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 		/// The container takes the bar's height and lays its buttons out itself,
 		/// so it never raises the widget view's minimum height.
 		trafficLights.heightAnchor.constraint(equalTo: stackView.heightAnchor).isActive = true
-		updateTrafficLightSize()
+		updateTrafficLights()
 	}
 
-	/// Keep the traffic lights the same *apparent* size as a dock icon.
+	/// Keep the traffic lights the same *apparent* size as a dock icon, and on
+	/// the same horizontal line as their centres.
 	///
 	/// Not the same box size: a button paints its whole frame, whereas an app
 	/// icon only paints 824/1024 of its box, so matching box sizes made the
 	/// buttons look about a quarter larger than the icons next to them. The
-	/// button side is therefore the icon's visible artwork size, and the same
-	/// vertical offset the icons use is applied so they share a baseline.
-	private func updateTrafficLightSize() {
+	/// button side is therefore the icon's visible artwork size.
+	private func updateTrafficLights() {
 		guard trafficLights.buttons.isEmpty == false else {
 			return
 		}
-		trafficLights.side    = currentItemHeight * Constants.dockIconArtworkRatio
-		trafficLights.yOffset = currentItemYOffset
+		trafficLights.side = currentItemHeight * Constants.dockIconArtworkRatio
+		syncTrafficLightAlignment()
+	}
+
+	/// Centre the lights on the dock icons vertically.
+	///
+	/// Measured from a real item view rather than derived from `itemYOffset`:
+	/// the offset is applied inside the scrubber's own coordinate space and how
+	/// that maps onto the bar is NSScrubber's business, so the only dependable
+	/// answer is the icons' actual position on screen. Converting the item's
+	/// centre into the lights' space gives that directly, and it keeps working
+	/// if the item offset is recalibrated.
+	private func syncTrafficLightAlignment() {
+		guard trafficLights.buttons.isEmpty == false,
+			  trafficLights.bounds.height > 0 else {
+			return
+		}
+		/// Prefer an item that is actually in the view hierarchy; fall back to
+		/// any cached view so alignment still lands once the dock is populated.
+		guard let itemView = cachedDockItemViews.first(where: { $0.window != nil })
+				?? cachedDockItemViews.first else {
+			return
+		}
+		/// The icon view fills the item's height and centres its image, and the
+		/// icon artwork is centred inside that image, so the item's centre *is*
+		/// the icons' visible centre.
+		let iconCentre = trafficLights.convert(NSPoint(x: 0, y: itemView.bounds.midY),
+											   from: itemView)
+		trafficLights.buttonCenterY = iconCentre.y
 	}
 
 	/// The traffic-light button under `location`, if any.
