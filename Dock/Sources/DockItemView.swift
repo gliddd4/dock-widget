@@ -13,7 +13,6 @@ import TinyConstraints
 class DockItemView: NSScrubberItemView {
 
     /// Core
-    private static let kBounceAnimationKey: String = "kBounceAnimationKey"
     private var isAnimating: Bool = false
 	private var isMouseOver: Bool = false
 	public  var diffId: Int!
@@ -104,8 +103,10 @@ class DockItemView: NSScrubberItemView {
         nameLabel?.layer?.contentsScale     = window?.backingScaleFactor ?? 1
     }
 
+    /// Launch state is tracked but deliberately does not animate: dock items
+    /// must never move vertically, so a launching app stays exactly where it is.
     public func set(isLaunching: Bool) {
-        if isLaunching { startBounceAnimation() } else { stopBounceAnimation() }
+        self.isAnimating = isLaunching
     }
     public var isLaunching: Bool { return self.isAnimating }
 
@@ -181,31 +182,8 @@ class DockItemView: NSScrubberItemView {
 
 }
 
-extension DockItemView: CAAnimationDelegate {
-    func startBounceAnimation() {
-        if !isAnimating {
-            self.loadBounceAnimation()
-        }
-    }
-    private func loadBounceAnimation() {
-        isAnimating           = true
-        let bounce            = CABasicAnimation(keyPath: "position.y")
-        bounce.byValue        = NSNumber(floatLiteral: 10)
-        bounce.duration       = 0.325
-        bounce.autoreverses   = true
-		bounce.isRemovedOnCompletion = true
-		bounce.delegate = self
-        bounce.timingFunction = CAMediaTimingFunction(name: CAMediaTimingFunctionName.easeOut)
-        let frame = self.iconView.layer?.frame
-        self.iconView.layer?.anchorPoint = CGPoint(x: 0.5, y: 0.5)
-        self.iconView.layer?.frame = frame ?? .zero
-        self.iconView.layer?.add(bounce, forKey: DockItemView.kBounceAnimationKey)
-        self.badgeView?.layer?.add(bounce, forKey: DockItemView.kBounceAnimationKey)
-    }
-    func stopBounceAnimation() {
-        self.isAnimating = false
-    }
-	func animationDidStop(_ anim: CAAnimation, finished flag: Bool) {
-		startBounceAnimation()
-	}
-}
+// The launch bounce was removed deliberately. It animated `position.y` on the
+// icon and badge, and because `animationDidStop` restarted it whenever
+// `isAnimating` had been cleared, a stopped item could keep bouncing on its
+// own. Dock items must only ever slide horizontally, so `isLaunching` is now
+// tracked without any motion.

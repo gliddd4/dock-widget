@@ -34,6 +34,12 @@ class DockRepository {
 	private var defaultItems: [DockItem] 	= []
 	private var runningItems: [DockItem] 	= []
 	private var persistentItems: [DockItem] = []
+	/// Bundle identifiers of the apps in the Dock, in the Dock's own order
+	/// (Finder first when it is shown, Launchpad skipped). The widget uses this
+	/// to keep its item order stable and identical to the real Dock, instead of
+	/// re-sorting by running state or activation recency.
+	private(set) var dockOrder: [String] = []
+
 	private var dockItems: [DockItem] {
 		if Preferences[.showOnlyRunningApps] {
 			return self.runningItems
@@ -144,9 +150,38 @@ extension DockRepository {
 	
 	/// Reload
 	@objc private func reloadDockItems(_ notification: NSNotification?) {
+		loadDockOrder()
 		loadRunningItems()
 		loadDefaultItems()
 		loadPersistentItems()
+	}
+
+	/// Read the Dock's own app order straight from its preferences. This is the
+	/// canonical order the Touch Bar dock must always follow: pinned apps in
+	/// Dock order, and any running-but-unpinned app appended at the end (which
+	/// is exactly how the real Dock presents them).
+	@objc private func loadDockOrder() {
+		var order: [String] = []
+		if Preferences[.hideFinder] == false {
+			order.append(Constants.kFinderIdentifier)
+		}
+		guard let dict = UserDefaults.standard.persistentDomain(forName: "com.apple.dock"),
+			  let apps = dict["persistent-apps"] as? [[String: Any]] else {
+			NSLog("[DockWidget]: Can't read Dock order")
+			self.dockOrder = order
+			return
+		}
+		for app in apps {
+			guard let dataTile = app["tile-data"] as? [String: Any],
+				  let bundleIdentifier = dataTile["bundle-identifier"] as? String,
+				  bundleIdentifier != Constants.kLaunchpadIdentifier else {
+				continue
+			}
+			if order.contains(bundleIdentifier) == false {
+				order.append(bundleIdentifier)
+			}
+		}
+		self.dockOrder = order
 	}
 	
 	/// Running apps

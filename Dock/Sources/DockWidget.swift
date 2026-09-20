@@ -55,11 +55,6 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 	/// "minimize into application icon" hides windows from the AX list.
 	private var minimizedAppIdentifiers: Set<String> = []
 
-	/// Most-recently-used ordering (like the iOS app switcher):
-	/// last activation timestamp per bundle identifier.
-	private var lastActivationDates: [String: Date] = [:]
-	private var didSeedInitialMRU = false
-
 	/// Periodically re-checks whether Finder actually has open windows,
 	/// so it can show as inactive on the widget (the real Dock always
 	/// paints Finder as running, even with no windows).
@@ -293,8 +288,10 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 	}
 
 	/// Animate every visible item view from its pre-relayout frame to its
-	/// current one. The frontmost item also animates its width so the name
-	/// area grows smoothly and pushes the neighbors aside.
+	/// current one. Only the horizontal component is animated: an item slides
+	/// sideways into its new slot and never moves vertically. The frontmost
+	/// item also animates its width so the name area grows smoothly and pushes
+	/// its neighbours aside.
 	private func animateItemSlide(from oldFrames: [Int: NSRect]) {
 		let duration: TimeInterval = 0.28
 		for view in cachedDockItemViews {
@@ -310,13 +307,17 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 				continue
 			}
 			let newFrame = view.frame
-			let position = CABasicAnimation(keyPath: "position")
-			position.fromValue = NSValue(point: NSPoint(x: oldFrame.midX, y: oldFrame.midY))
-			position.toValue   = NSValue(point: NSPoint(x: newFrame.midX, y: newFrame.midY))
+			/// Horizontal only — `position.x`, never `position`, so an item can
+			/// never drift up or down on its way to its new slot.
+			let position = CABasicAnimation(keyPath: "position.x")
+			position.fromValue = NSNumber(value: Double(oldFrame.midX))
+			position.toValue   = NSNumber(value: Double(newFrame.midX))
 			position.duration  = duration
 			position.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
 			layer.add(position, forKey: "dockItemSlidePosition")
-			if oldFrame.size != newFrame.size {
+			/// Only the width ever changes (the frontmost item grows to reveal
+			/// its name); the height is fixed, so nothing moves vertically.
+			if oldFrame.width != newFrame.width {
 				let bounds = CABasicAnimation(keyPath: "bounds")
 				bounds.fromValue = NSValue(rect: NSRect(origin: .zero, size: oldFrame.size))
 				bounds.toValue   = NSValue(rect: NSRect(origin: .zero, size: newFrame.size))
@@ -504,16 +505,13 @@ extension DockWidget: DockDelegate {
 				}
 			}else {
 				if self.dockItems.contains(item) == false {
-					if index < self.dockItems.count {
-						self.dockItems.remove(at: index)
-						self.dockItems.insert(item, at: index)
-						self.dockScrubber.reloadItems(at: IndexSet(integer: index))
-					}else {
-						let validIndex = self.dockItems.count
-						self.dockItems.append(item)
-						self.dockScrubber.insertItems(at: IndexSet(integer: validIndex))
-						self.dockScrubber.animator().scrollItem(at: validIndex, to: .center)
-					}
+					/// Always append, then let applyDockOrder() put it in place.
+					/// The old code spliced the item in at the repository's
+					/// index, which replaced whatever already sat in that slot
+					/// and silently dropped an app out of the dock.
+					let validIndex = self.dockItems.count
+					self.dockItems.append(item)
+					self.dockScrubber.insertItems(at: IndexSet(integer: validIndex))
 				}else {
 					self.dockScrubber.reloadData()
 				}
@@ -529,7 +527,7 @@ extension DockWidget: DockDelegate {
 					}
 				}
 			}
-			self.reorderRunningAppsFirst()
+			self.applyDockOrder()
 			self.syncFrontmostIfNeeded()
 		}
 	}
@@ -621,52 +619,46 @@ extension DockWidget: DockDelegate {
 		return view
 	}
 
-	/// Move running apps to the front, ordered by most recently used
-	/// (like the iOS app switcher); closed apps keep their dock order after them
-	private func reorderRunningAppsFirst() {
-		seedInitialMRUOrder()
-		let running = dockItems.filter { $0.isRunning }
-		let closed  = dockItems.filter { !$0.isRunning }
-		let sortedRunning = running.enumerated().sorted { lhs, rhs in
-			let lhsDate = lastActivationDates[lhs.element.bundleIdentifier ?? ""] ?? .distantPast
-			let rhsDate = lastActivationDates[rhs.element.bundleIdentifier ?? ""] ?? .distantPast
-			return lhsDate == rhsDate ? lhs.offset < rhs.offset : lhsDate > rhsDate
+	/// Put the items back into the Dock's own order. The order is a property of
+	/// the Dock, never of what happens to be running or was last activated, so
+	/// this is the only thing that ever reorders the items. Apps that are
+	/// running but not pinned in the Dock sort to the end, which is where the
+	/// real Dock shows them.
+	private func applyDockOrder() {
+		let order = dockRepository?.dockOrder ?? []
+		guard order.isEmpty == false else {
+			return
+		}
+		/// Rank by position in the Dock; unpinned apps rank last and ties keep
+		/// their existing relative order.
+		func rank(_ item: DockItem) -> Int {
+			guard let identifier = item.bundleIdentifier,
+				  let index = order.firstIndex(of: identifier) else {
+				return Int.max
+			}
+			return index
+		}
+		let reordered = dockItems.enumerated().sorted { lhs, rhs in
+			let lhsRank = rank(lhs.element)
+			let rhsRank = rank(rhs.element)
+			return lhsRank == rhsRank ? lhs.offset < rhs.offset : lhsRank < rhsRank
 		}.map { $0.element }
-		let newOrder = sortedRunning + closed
-		guard newOrder != dockItems else {
+		guard reordered != dockItems else {
 			return
 		}
 		/// Remap frontmostIndex so it follows the same app after reordering
 		if let frontmostIndex = frontmostIndex, frontmostIndex < dockItems.count {
 			let frontmostDiffId = dockItems[frontmostIndex].diffId
-			self.frontmostIndex = newOrder.firstIndex(where: { $0.diffId == frontmostDiffId })
+			self.frontmostIndex = reordered.firstIndex(where: { $0.diffId == frontmostDiffId })
 		}
-		dockItems = newOrder
+		dockItems = reordered
 		relayoutScrubber()
 	}
 
-	/// Treat the initial dock order as the starting MRU order: earlier items
-	/// count as more recently used, so the first reorder doesn't shuffle things
-	private func seedInitialMRUOrder() {
-		guard !didSeedInitialMRU else { return }
-		didSeedInitialMRU = true
-		for (offset, item) in dockItems.enumerated() {
-			let key = item.bundleIdentifier ?? "path:\(item.path?.absoluteString ?? String(offset))"
-			if lastActivationDates[key] == nil {
-				lastActivationDates[key] = Date(timeIntervalSinceNow: -Double(offset + 1))
-			}
-		}
-	}
-
-	/// The app that was just activated moves to the front of the dock
+	/// Activation no longer moves anything: the dock order is fixed, so the
+	/// only thing left to do here is keep the app-switch hotkeys in sync.
 	@objc private func handleAppActivated(_ notification: Notification) {
-		guard let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
-			  let bundleIdentifier = app.bundleIdentifier else {
-			return
-		}
-		lastActivationDates[bundleIdentifier] = Date()
 		DispatchQueue.main.async { [weak self] in
-			self?.reorderRunningAppsFirst()
 			self?.syncHotKeysForFrontmostApp()
 		}
 	}
@@ -696,7 +688,7 @@ extension DockWidget: DockDelegate {
 		if let index = dockItems.firstIndex(where: { $0.diffId == item.diffId }) {
 			dockScrubber.reloadItems(at: IndexSet(integer: index))
 		}
-		reorderRunningAppsFirst()
+		applyDockOrder()
 	}
 
 	/// Single source of truth for the frontmost highlight: clears every other
