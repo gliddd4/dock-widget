@@ -23,6 +23,17 @@ class Constants {
     static let trashPath = NSHomeDirectory().appending("/.Trash")
     /// UI
     static let dockItemSize:            NSSize  = NSSize(width: 38, height: 36)
+    /// Fraction of an app icon's canvas that is actually painted.
+    ///
+    /// macOS app icons are built on a 1024pt grid whose squircle artwork only
+    /// occupies 824pt; the rest of the canvas is transparent margin. So an
+    /// icon drawn into a 36pt box only *looks* 28.97pt tall. Anything that
+    /// should appear the same size as a dock icon has to be scaled by this,
+    /// or it reads as roughly 24% too big.
+    ///
+    /// Measured against Finder, Notes, TextEdit, Terminal, System Settings and
+    /// Pock: every one reports 0.8047 of its canvas.
+    static let dockIconArtworkRatio:    CGFloat = 824.0 / 1024.0
     /// Calibrated vertical offset applied to the dock items (permanent default)
     static let dockItemYOffsetDefault:  CGFloat = -3
     /// UserDefaults key that overrides the dock item height (live calibration)

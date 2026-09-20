@@ -198,20 +198,33 @@ enum TrafficLightAction {
 /// A squircle button sitting to the left of the dock, styled like one of the
 /// macOS window controls. These are touch-only: they are deliberately kept out
 /// of `dockItems`, so the Option+1..9 app-switch hotkeys can never select them.
+///
+/// Sizing note: the button is drawn edge to edge, so its frame *is* its visible
+/// size. A dock icon is not — the artwork only fills 824/1024 of the icon's
+/// box. The button therefore has to be sized to the icon's visible artwork
+/// (see `Constants.dockIconArtworkRatio`), not to the icon's box, or the flat
+/// colour makes it look a quarter larger than the icons beside it.
 final class TrafficLightButton: NSView {
 
-	/// macOS app icons are continuous-corner rounded squares; this ratio is the
-	/// one the system uses, so a button of the dock icon's size matches its shape.
+	/// macOS app icons are continuous-corner rounded squares, and the ratio is
+	/// measured against the artwork, not the box, so applying it to the button's
+	/// visible side reproduces the icon's curve exactly.
 	static let cornerRadiusRatio: CGFloat = 0.2237
+
+	/// The visible side the button starts at, before the container lays it out.
+	static var defaultSide: CGFloat {
+		return Constants.dockItemSize.height * Constants.dockIconArtworkRatio
+	}
 
 	let action: TrafficLightAction
 
 	init(color: NSColor, action: TrafficLightAction) {
 		self.action = action
-		super.init(frame: NSRect(origin: .zero, size: Constants.dockItemSize))
+		let side = TrafficLightButton.defaultSide
+		super.init(frame: NSRect(x: 0, y: 0, width: side, height: side))
 		self.wantsLayer = true
 		self.layer?.backgroundColor = color.cgColor
-		self.cornerRadius = Constants.dockItemSize.height * TrafficLightButton.cornerRadiusRatio
+		self.cornerRadius = side * TrafficLightButton.cornerRadiusRatio
 	}
 
 	required init?(coder decoder: NSCoder) {
@@ -251,11 +264,23 @@ final class TrafficLightsView: NSView {
 	/// Gap between buttons.
 	var spacing: CGFloat = 6
 
-	/// Side of one button — the dock icon size, following the size calibration.
-	var side: CGFloat = Constants.dockItemSize.height {
+	/// Side of one button. This is the button's **visible** side, which the
+	/// caller sets to the dock icon's visible artwork size — see
+	/// `Constants.dockIconArtworkRatio` and the note on `TrafficLightButton`.
+	var side: CGFloat = TrafficLightButton.defaultSide {
 		didSet {
 			buttons.forEach { $0.cornerRadius = side * TrafficLightButton.cornerRadiusRatio }
 			invalidateIntrinsicContentSize()
+			needsLayout = true
+		}
+	}
+
+	/// Vertical nudge, kept in step with the dock items' own `itemYOffset` so
+	/// the lights sit on the same line as the icons rather than on the bar's
+	/// geometric centre. Both superviews are unflipped, so the sign is shared.
+	var yOffset: CGFloat = 0 {
+		didSet {
+			guard yOffset != oldValue else { return }
 			needsLayout = true
 		}
 	}
@@ -286,7 +311,7 @@ final class TrafficLightsView: NSView {
 			return
 		}
 		var x = (bounds.width - intrinsicContentSize.width) / 2
-		let y = (bounds.height - side) / 2
+		let y = (bounds.height - side) / 2 + yOffset
 		for button in buttons {
 			button.frame = NSRect(x: x, y: y, width: side, height: side)
 			x += side + spacing

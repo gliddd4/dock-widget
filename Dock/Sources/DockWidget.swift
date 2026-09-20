@@ -209,6 +209,8 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 	private func adjustItemYOffset(by delta: CGFloat) {
 		let newOffset = max(min(currentItemYOffset + delta, 20), -20)
 		currentItemYOffset = newOffset
+		/// The lights ride the same baseline as the icons
+		updateTrafficLightSize()
 		dockScrubber.scrubberLayout = makeDockLayout()
 		dockScrubber.reloadData()
 	}
@@ -384,13 +386,19 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 		updateTrafficLightSize()
 	}
 
-	/// Keep the traffic lights exactly the size of a dock icon, following the
-	/// Option+[ / ] size calibration.
+	/// Keep the traffic lights the same *apparent* size as a dock icon.
+	///
+	/// Not the same box size: a button paints its whole frame, whereas an app
+	/// icon only paints 824/1024 of its box, so matching box sizes made the
+	/// buttons look about a quarter larger than the icons next to them. The
+	/// button side is therefore the icon's visible artwork size, and the same
+	/// vertical offset the icons use is applied so they share a baseline.
 	private func updateTrafficLightSize() {
 		guard trafficLights.buttons.isEmpty == false else {
 			return
 		}
-		trafficLights.side = currentItemHeight
+		trafficLights.side    = currentItemHeight * Constants.dockIconArtworkRatio
+		trafficLights.yOffset = currentItemYOffset
 	}
 
 	/// The traffic-light button under `location`, if any.
