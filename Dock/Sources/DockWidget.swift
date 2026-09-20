@@ -374,10 +374,13 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 		for (color, action) in specs {
 			trafficLights.add(TrafficLightButton(color: color, action: action))
 		}
+		/// Add it to the stack *first*. Activating a constraint between two views
+		/// that share no common ancestor throws an exception, and because the
+		/// widget runs inside Pock that took the whole app down on launch.
+		stackView.addArrangedSubview(trafficLights)
 		/// The container takes the bar's height and lays its buttons out itself,
 		/// so it never raises the widget view's minimum height.
 		trafficLights.heightAnchor.constraint(equalTo: stackView.heightAnchor).isActive = true
-		stackView.addArrangedSubview(trafficLights)
 		updateTrafficLightSize()
 	}
 
