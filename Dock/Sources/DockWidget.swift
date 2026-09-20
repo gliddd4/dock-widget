@@ -46,6 +46,9 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 	/// app-switch hotkeys cannot reach them.
 	private var trafficLights:       TrafficLightsView! = TrafficLightsView(frame: .zero)
 	private var trafficLightHovered: TrafficLightButton?
+	/// Bundle id of the app whose window the yellow traffic light minimised, so
+	/// the next press restores that app rather than whatever is frontmost by then.
+	private var trafficLightMinimizedApp: String?
 	/// Set once per launch so `debugLog` truncates the file it appends to.
 	private var didPrepareDebugLog:  Bool = false
 
@@ -506,9 +509,17 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 		trafficLightHovered = hovered
 	}
 
-	/// Drive the frontmost app's window the way its own traffic lights would, by
-	/// pressing that window's Accessibility button.
+	/// Red and green press the corresponding Accessibility button on the frontmost
+	/// window, the way its own traffic lights would. Yellow toggles instead — see
+	/// `toggleMinimize()`.
 	private func perform(_ action: TrafficLightAction) {
+		/// Yellow is a toggle, not a one-shot press: it minimises the frontmost
+		/// window and brings it back on the next press. Red and green stay
+		/// one-shot.
+		if case .minimize = action {
+			toggleMinimize()
+			return
+		}
 		guard let app = NSWorkspace.shared.frontmostApplication else {
 			debugLog("  perform \(action): no frontmost application")
 			return
@@ -522,8 +533,8 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 		let attribute: CFString
 		switch action {
 		case .close:    attribute = kAXCloseButtonAttribute as CFString
-		case .minimize: attribute = kAXMinimizeButtonAttribute as CFString
 		case .zoom:     attribute = kAXZoomButtonAttribute as CFString
+		case .minimize: return
 		}
 		guard let value = copyAttribute(window, attribute),
 			  CFGetTypeID(value) == AXUIElementGetTypeID() else {
@@ -534,6 +545,34 @@ class DockWidget: NSObject, PKWidget, PKScreenEdgeMouseDelegate {
 		let result = AXUIElementPerformAction(value as! AXUIElement, kAXPressAction as CFString)
 		debugLog("  perform \(action): \(app.bundleIdentifier ?? "?") trusted=\(AXIsProcessTrusted()) "
 				 + "AXPress result=\(result.rawValue)")
+	}
+
+	/// Yellow light: minimise the frontmost app's window, or bring it back if this
+	/// button is what minimised it.
+	///
+	/// The bundle id has to be remembered rather than re-reading "frontmost" on
+	/// the second press: once a window is minimised its app normally stops being
+	/// frontmost, so the next press would act on a different app entirely. This is
+	/// the same reason the dock's own tap-to-toggle keeps `minimizedAppIdentifiers`.
+	private func toggleMinimize() {
+		if let bundleIdentifier = trafficLightMinimizedApp,
+		   let app = NSRunningApplication.runningApplications(withBundleIdentifier: bundleIdentifier).first,
+		   !hasVisibleWindow(app) {
+			trafficLightMinimizedApp = nil
+			debugLog("  minimize toggle: restoring \(bundleIdentifier)")
+			restoreApp(bundleIdentifier: bundleIdentifier)
+			return
+		}
+		/// Nothing of ours is minimised, so minimise the frontmost app's window.
+		trafficLightMinimizedApp = nil
+		guard let frontmost = NSWorkspace.shared.frontmostApplication,
+			  let bundleIdentifier = frontmost.bundleIdentifier else {
+			debugLog("  minimize toggle: no frontmost application")
+			return
+		}
+		debugLog("  minimize toggle: minimising \(bundleIdentifier)")
+		minimizeApp(bundleIdentifier: bundleIdentifier)
+		trafficLightMinimizedApp = bundleIdentifier
 	}
 
 	/// Append a line to `dockwidget-debug.log` beside the widget.
